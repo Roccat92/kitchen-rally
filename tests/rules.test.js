@@ -61,4 +61,10 @@ const C=CONFIG.court;
   const b3=new Ball(CONFIG); b3.x=0;b3.y=1.2;b3.z=0.5;b3.vx=0;b3.vy=0;b3.vz=-5; let bn=0; for(let i=0;i<300;i++){b3.step(1/120); if(b3.bounceEv)bn++;}
   t('ball bounces with restitution (bounce events happen)',bn>=1);
   const b4=new Ball(CONFIG); b4.y=2;b4.x=1;b4.z=3; let ys=[]; for(let i=0;i<400;i++){b4.step(1/120); if(b4.bounceEv)ys.push(b4.vy);} t('restitution ~0.6',ys.length>1&&ys[0]>0&&true,JSON.stringify(ys)); }
+  // fault reasons shown to the player
+  { const r=new Rules(CONFIG); r.onServe(); let ev=r.onHit(1,false); t('volleying the serve: reason says let the serve bounce', ev&&/let the serve bounce/.test(ev.detail),ev&&ev.detail);
+    const r2=new Rules(CONFIG); r2.onServe(); r2.onBounce(-1,-4); r2.onHit(1,false); r2.bounces=0; ev=r2.onHit(0,false); t('server volleying the return (3rd shot): let the return bounce', ev&&/let the return bounce/.test(ev.detail),ev&&ev.detail);
+    const r3=new Rules(CONFIG); r3.onServe(); r3.onBounce(-1,-4); r3.onHit(1,false); r3.onBounce(1,3); r3.onHit(0,false); ev=r3.onHit(1,true); t('kitchen volley reason',ev&&/Kitchen volley/.test(ev.detail),ev&&ev.detail);
+    const r4=new Rules(CONFIG); r4.onServe(); ev=r4.onBounce(-1,-1.0); t('serve in kitchen reason',ev&&/Serve in kitchen/.test(ev.detail),ev&&ev.detail);
+    const r5=new Rules(CONFIG); r5.onServe(); ev=r5.onBounce(0,-9); t('out reason',ev&&/^Out/.test(ev.detail)); }
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail?1:0);

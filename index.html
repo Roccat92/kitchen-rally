@@ -26,8 +26,10 @@
   #games { font-size:clamp(9px,1.1vw,11px); letter-spacing:1px; opacity:.85; margin-top:1px; }
   #callout { position:fixed; left:50%; top:34%; transform:translate(-50%,-50%); text-align:center; pointer-events:none; opacity:0; }
   #callout .big { font-family:Georgia,serif; font-weight:700; font-style:italic; font-size:clamp(34px,8vw,84px); color:#fff; text-shadow:0 3px 0 #17402a,0 0 18px rgba(0,0,0,.35); letter-spacing:2px; }
-  #callout .sub { margin-top:4px; display:inline-block; padding:3px 12px; background:rgba(24,70,46,.9); border-radius:6px; font-size:clamp(11px,1.6vw,16px); letter-spacing:2px; text-transform:uppercase; }
-  #callout.show { animation:pop 1.5s ease-out forwards; }
+  #callout .sub { max-width:92vw; margin-top:4px; display:inline-block; padding:3px 12px; background:rgba(24,70,46,.9); border-radius:6px; font-size:clamp(11px,1.6vw,16px); letter-spacing:2px; text-transform:uppercase; }
+  #callout.show { animation:pop 1.9s ease-out forwards; }
+  #cue { position:fixed; left:0; top:0; transform:translate(-50%,-100%); padding:4px 12px; border-radius:8px; background:rgba(214,40,40,.94); color:#fff; font-weight:800; font-size:13px; letter-spacing:2px; pointer-events:none; display:none; white-space:nowrap; box-shadow:0 2px 8px rgba(0,0,0,.35); }
+  #cue.flash { background:#ff1f1f; font-size:16px; }
   @keyframes pop { 0%{opacity:0;transform:translate(-50%,-40%) scale(.6)} 12%{opacity:1;transform:translate(-50%,-50%) scale(1.08)} 22%{transform:translate(-50%,-50%) scale(1)} 80%{opacity:1} 100%{opacity:0;transform:translate(-50%,-56%) scale(1)} }
   #topRight { position:fixed; right:12px; top:12px; display:flex; gap:8px; }
   .chip { padding:7px 12px; font-size:12px; letter-spacing:1px; color:#fff; cursor:pointer; pointer-events:auto; font-weight:700; }
@@ -78,13 +80,15 @@
 </div>
 
 <div id="topRight">
+  <div class="chip panel" id="btnHelper">RULE HELPER ON</div>
   <div class="chip panel" id="btnAssist">ASSIST ON</div>
   <div class="chip panel" id="btnMute">SOUND ON</div>
   <div class="chip panel" id="btnPause">PAUSE</div>
 </div>
 
-<div id="hint" class="panel"><b>WASD / Arrows</b> move &nbsp; <b>J / Space</b> drive &nbsp; <b>K</b> dink / lob &nbsp; <b>Enter</b> pause &nbsp; <b>M</b> mute &nbsp; <b>T</b> assist &nbsp; <b>Wheel / pinch</b> zoom</div>
+<div id="hint" class="panel"><b>WASD / Arrows</b> move &nbsp; <b>J / Space</b> drive &nbsp; <b>K</b> dink / lob &nbsp; <b>Enter</b> pause &nbsp; <b>M</b> mute &nbsp; <b>T</b> assist &nbsp; <b>R</b> rule helper &nbsp; <b>Wheel / pinch</b> zoom</div>
 
+<div id="cue"></div>
 <div id="callout"><div class="big" id="coBig"></div><div class="sub" id="coSub"></div></div>
 
 <div id="scrTitle" class="screen"><div class="card panel">
@@ -171,8 +175,8 @@ class Rules {
   onHit(p, kitchen) {
     if (this.phase !== 'rally' || p === this.lastHitter) return null;
     const volley = this.bounces === 0;
-    if (volley && this.hits <= 2) return this.fault(p, 'FAULT', 'Two-bounce rule');
-    if (volley && kitchen) return this.fault(p, 'KITCHEN!', 'Volley in the kitchen');
+    if (volley && this.hits <= 2) return this.fault(p, 'FAULT', this.hits === 1 ? 'Two-bounce rule: let the serve bounce' : 'Two-bounce rule: let the return bounce');
+    if (volley && kitchen) return this.fault(p, 'KITCHEN!', 'Kitchen volley: no volleys inside the kitchen line');
     this.hits++; this.lastHitter = p; this.bounces = 0; this.netTouched = false;
     this.watch[0] = this.watch[1] = false;
     if (volley) this.watch[p] = true;
@@ -185,20 +189,20 @@ class Rules {
     this.bounces++; this.watch[0] = this.watch[1] = false;
     const side = Rules.sideOf(z);
     if (this.bounces === 1) {
-      if (Math.abs(x) > hw || Math.abs(z) > hl) return this.fault(this.lastHitter, 'OUT', 'Ball landed out');
-      if (side === this.lastHitter) return this.netTouched ? this.fault(this.lastHitter, 'NET', 'Ball hit the net')
-                                                           : this.fault(this.lastHitter, 'FAULT', 'Did not clear the net');
+      if (Math.abs(x) > hw || Math.abs(z) > hl) return this.fault(this.lastHitter, 'OUT', 'Out: the ball landed outside the court');
+      if (side === this.lastHitter) return this.netTouched ? this.fault(this.lastHitter, 'NET', 'Net: the ball hit the net')
+                                                           : this.fault(this.lastHitter, 'FAULT', 'Net: the ball did not clear the net');
       if (this.hits === 1) {
-        if (Math.abs(z) <= c.kitchen) return this.fault(this.lastHitter, 'FAULT', 'Serve landed in the kitchen');
-        if (x * this.receiveCourtSign() < 0) return this.fault(this.lastHitter, 'FAULT', 'Serve landed in the wrong court');
+        if (Math.abs(z) <= c.kitchen) return this.fault(this.lastHitter, 'FAULT', 'Serve in kitchen: the serve must land past the kitchen');
+        if (x * this.receiveCourtSign() < 0) return this.fault(this.lastHitter, 'FAULT', 'Serve landed in the wrong service box');
       }
       return null;
     }
-    return this.fault(1 - this.lastHitter, 'FAULT', 'Double bounce');
+    return this.fault(1 - this.lastHitter, 'FAULT', 'Double bounce: the ball bounced twice');
   }
   // stepping into the kitchen after a volley, before the ball bounces
   momentum(p, kitchen) {
-    if (this.phase === 'rally' && this.watch[p] && kitchen) return this.fault(p, 'KITCHEN!', 'Stepped in after a volley');
+    if (this.phase === 'rally' && this.watch[p] && kitchen) return this.fault(p, 'KITCHEN!', 'Kitchen: do not step in after a volley');
     return null;
   }
   fault(faulter, label, detail) {
@@ -359,6 +363,7 @@ class Input {
       else if (e.code === 'Enter') this.fire('enter');
       else if (e.code === 'KeyM') this.fire('mute');
       else if (e.code === 'KeyT') this.fire('assist');
+      else if (e.code === 'KeyR') this.fire('helper');
       else if (e.code === 'KeyQ') this.fire('quit');
       else if (e.code === 'Escape') this.fire('pause');
     });
@@ -938,8 +943,17 @@ class Game {
     const rm = new THREE.MeshBasicMaterial({ color: 0xfff36b, transparent: true, opacity: 0.85, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4, side: THREE.DoubleSide });
     this.ring = new THREE.Mesh(new THREE.RingGeometry(0.3, 0.4, 28).rotateX(-Math.PI / 2), rm); this.ring.renderOrder = 6; this.ring.visible = false; this.scene.add(this.ring);
 
+    const mkPlane = (w, d, color, op) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: op, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 })); m.renderOrder = 4; m.visible = false; this.scene.add(m); return m; };
+    const CT = CONFIG.court;
+    this.kitchenHi = mkPlane(CT.width, CT.kitchen, 0xff3b30, 0.35); this.kitchenHi.position.set(0, 0.03, CT.kitchen / 2);
+    this.serveHi = mkPlane(CT.width / 2, CT.length / 2 - CT.kitchen, 0xffe14a, 0.4);
+    const brm = new THREE.MeshBasicMaterial({ color: 0xff2020, transparent: true, opacity: 0.9, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -5, polygonOffsetUnits: -5, side: THREE.DoubleSide });
+    this.bounceRing = new THREE.Mesh(new THREE.RingGeometry(0.3, 0.42, 28).rotateX(-Math.PI / 2), brm); this.bounceRing.renderOrder = 7; this.bounceRing.visible = false; this.scene.add(this.bounceRing);
+    this.cueEl = $('cue'); this.cueFlash = 0; this.pv = new THREE.Vector3();
+    this.helper = true; this.strikeSrc = 'fresh'; // rule helper: blocks an illegal manual volley instead of faulting (R toggles)
+
     this.diff = 'normal'; this.state = 'title'; this.prev = 'serve'; this.time = 0; this.stateT = 0; this.acc = 0; this.cheerT = 0; this.cheerAt = -1;
-    this.buf = { t: 0, age: 0, kind: 'hit', swung: false }; this.serve = { pending: false, t: 0, soft: false };
+    this.buf = { t: 0, age: 0, kind: 'hit', swung: false, fresh: false, warned: false }; this.serve = { pending: false, t: 0, soft: false };
     this.callouts = []; this.pending = null; this.startPos = [{ x: 0, z: 0 }, { x: 0, z: 0 }];
     this.tw = [0, 0]; this.sol = {}; this.tmpSim = {}; this.tmpSol = {};
     this.ctl = [null, new AIController(this, this.players[1], this.diff)];
@@ -971,10 +985,12 @@ class Game {
     $('btnAgain').addEventListener('click', (e) => { e.stopPropagation(); this.onAction('enter'); });
     $('btnMute').addEventListener('click', () => this.onAction('mute'));
     $('btnAssist').addEventListener('click', () => this.onAction('assist'));
+    $('btnHelper').addEventListener('click', () => this.onAction('helper'));
     $('btnPause').addEventListener('click', () => this.onAction('pause'));
   }
+  setHelper(on) { this.helper = on; $('btnHelper').textContent = on ? 'RULE HELPER ON' : 'RULE HELPER OFF'; }
   setDiff(d) {
-    this.diff = d; this.ctl[1].setDiff(d); if (this.ctl[0]) this.ctl[0].setDiff('hard');
+    this.diff = d; this.setHelper(d !== 'hard'); this.ctl[1].setDiff(d); if (this.ctl[0]) this.ctl[0].setDiff('hard');
     for (const b of document.querySelectorAll('#diffs .btn')) b.classList.toggle('sel', b.dataset.d === d);
     this.audio.sfx('blip');
   }
@@ -989,6 +1005,7 @@ class Game {
     switch (n) {
       case 'touch': document.body.classList.add('touch'); break;
       case 'mute': this.audio.setMuted(!this.audio.muted); $('btnMute').textContent = this.audio.muted ? 'SOUND OFF' : 'SOUND ON'; this.audio.sfx('blip'); break;
+      case 'helper': this.setHelper(!this.helper); this.audio.sfx('blip'); break;
       case 'assist': this.assist = !this.assist; $('btnAssist').textContent = this.assist ? 'ASSIST ON' : 'ASSIST OFF'; this.audio.sfx('blip'); break;
       case 'left': case 'right':
         if (S === 'title') { const L = ['easy', 'normal', 'hard'], i = L.indexOf(this.diff); this.setDiff(L[clamp(i + (n === 'left' ? -1 : 1), 0, 2)]); }
@@ -1005,7 +1022,7 @@ class Game {
         if (S === 'title' || S === 'howto' || S === 'end') { this.onAction('enter'); break; }
         if (S === 'paused' || this.ctl[0]) break;
         if (S === 'serve') { if (this.rules.server === 0 && !this.serve.pending) this.beginServe(this.players[0], n === 'soft'); }
-        else if (S === 'rally') { this.buf.t = CONFIG.input.bufferMs / 1000; this.buf.age = 0; this.buf.kind = n; this.buf.swung = false; }
+        else if (S === 'rally') { this.buf.t = CONFIG.input.bufferMs / 1000; this.buf.age = 0; this.buf.kind = n; this.buf.swung = false; this.buf.warned = false; this.buf.fresh = this.canHit(this.players[0]); }
         break;
     }
   }
@@ -1044,14 +1061,18 @@ class Game {
     let spec;
     if (this.ctl[p.id]) spec = this.ctl[p.id].serveSpec();
     else {
-      this.input.world(this.tw); const up = -this.tw[1], s = r.receiveCourtSign();
-      spec = { type: this.serve.soft ? 'servesoft' : 'serve', tx: s * clamp(s * (s * 1.6 + 1.1 * this.tw[0]), 0.3, 2.85), tz: lerp(2.5, 6.3, 0.5 + 0.5 * up), sd0: 0.16 };
+      spec = this.humanServeSpec();
     }
     p.hitCD = CONFIG.player.hitCooldown;
     r.onServe(); b.live = true; this.shoot(p, spec, spec.sd0 * 0.7);
     this.setState('rally'); this.acc = 0;
     this.audio.sfx('pock');
     const o = this.ctl[1 - p.id]; if (o) o.onOpponentHit();
+  }
+  // human serve aim: safely past the kitchen by default (centre of the service box), direction keys nudge it
+  humanServeSpec(soft = this.serve.soft) {
+    this.input.world(this.tw); const up = -this.tw[1], s = this.rules.receiveCourtSign();
+    return { type: soft ? 'servesoft' : 'serve', tx: s * clamp(1.6 + 1.1 * s * this.tw[0], 0.7, 2.5), tz: lerp(3.6, 6.0, 0.5 + 0.5 * up), sd0: 0.16 };
   }
   canHit(p) {
     const b = this.ball, P = CONFIG.player;
@@ -1076,10 +1097,11 @@ class Game {
     const t = clamp(((p.z - b.z) * p.sz) / P.reach, -1, 1); // + when the ball is ahead of the player (toward the net) = early contact
     const side = (b.x - p.x) >= 0 ? 1 : -1;
     let type, tz;
-    if (kind === 'hit') { type = 'drive'; tz = lerp(3.0, 6.4, d); }
+    if (kind === 'hit') { type = 'drive'; tz = lerp(3.0, 5.9, d); }
     else if (Math.abs(p.z) <= S.dinkMaxZ) { type = 'dink'; tz = lerp(0.7, 1.95, d); }
-    else { type = 'lob'; tz = lerp(4.8, 6.4, d); }
-    return { type, tx: dx * 2.0 + t * S.timingSkew * side, tz, sd0: 0.2 };
+    else { type = 'lob'; tz = lerp(4.8, 5.9, d); }
+    // aim stays inside the sidelines even with full direction + early contact, so auto-aim never throws the ball out by itself
+    return { type, tx: clamp(dx * 2.0 + t * S.timingSkew * side, -2.6, 2.6), tz, sd0: 0.2 };
   }
   // compute and apply the launch velocity for a shot (auto-aim). sd = random error std dev in metres
   shoot(p, spec, sd) {
@@ -1091,9 +1113,9 @@ class Game {
     if (spec.arc && (spec.type === 'drive' || spec.type === 'serve')) T *= 1 + spec.arc; // extra loft so incoming balls stay returnable
     T = Math.max(T, 0.5);
     let sol = this.sol;
-    for (let i = 0; i < 9; i++) {
+    for (let i = 0; i < 16; i++) {
       solveShot(CONFIG, b.x, b.y, b.z, tx, tzw, T, sol, this.tmpSol);
-      if (sol.crossed && sol.netY >= C.netSide + S.netClear) break; T *= 1.1;
+      if (sol.crossed && sol.netY >= C.netSide + S.netClear) break; T *= 1.12;
     }
     b.vx = sol.vx; b.vy = sol.vy; b.vz = sol.vz;
     simFlight(CONFIG, b.x, b.y, b.z, b.vx, b.vy, b.vz, this.tmpSim);
@@ -1113,7 +1135,7 @@ class Game {
   handleFault(ev) {
     this.ring.visible = false; this.audio.sfx('fault');
     this.callouts.length = 0;
-    this.queueCallout(ev.label, ev.detail, 0);
+    this.queueCallout(ev.label, (ev.faulter === 0 ? 'You: ' : 'CPU: ') + ev.detail, 0);
     let d = 1.15;
     const nm = (i) => (i === 0 ? 'YOU' : 'CPU');
     if (ev.sideOut) { this.queueCallout('SIDE OUT', nm(this.rules.server) + ' to serve', d); d += 1.0; }
@@ -1138,6 +1160,8 @@ class Game {
     const P = CONFIG.player, r = this.rules, hl = CONFIG.court.length / 2;
     p.xMin = -P.boundX; p.xMax = P.boundX;
     if (p.sz > 0) { p.zMin = P.netGap; p.zMax = P.boundZ; } else { p.zMin = -P.boundZ; p.zMax = -P.netGap; }
+    // right after a volley near the kitchen, do not let momentum or assist carry the player into it (auto volleys and rule helper)
+    if (p.id === 0 && !this.ctl[0] && r.phase === 'rally' && r.watch[0] && (this.helper || this.strikeSrc !== 'fresh')) p.zMin = Math.max(p.zMin, CONFIG.court.kitchen + P.footRadius + 0.03);
     if (this.state === 'serve' && r.server === p.id) {
       const s = r.serveCourtSign(); // stay inside the serving court, behind the baseline
       if (s > 0) { p.xMin = 0.2; p.xMax = 3.0; } else { p.xMin = -3.0; p.xMax = -0.2; }
@@ -1174,13 +1198,15 @@ class Game {
     if (this.state === 'rally') {
       if (!this.ctl[0] && this.buf.t > 0) {
         this.buf.t -= dt; this.buf.age += dt;
-        // forgiving buffer: a press made well before the ball is in reach waits for a legal contact (after the bounce);
-        // a deliberate press right at contact still fires, so real two-bounce / kitchen faults can happen
-        if (this.canHit(h) && (this.humanLegal(h) || this.buf.age < CONFIG.input.illegalGraceMs / 1000)) this.strike(h, this.humanSpec(this.buf.kind));
-        else if (this.canHit(h)) { /* wait for legal contact */ }
-        else if (!this.buf.swung && h.swingT < 0 && h.hitCD <= 0) { h.startSwing((this.ball.x - h.x) < 0 ? 'bh' : 'fh', 0); h.hitCD = 0.18; this.buf.swung = true; }
+        // a buffered press never commits a rule fault by itself: it waits for a legal contact (after the bounce / outside the kitchen).
+        // only an explicit press made with the ball already in reach (fresh) can still fault, unless the rule helper blocks it
+        if (this.canHit(h)) {
+          if (this.humanLegal(h)) { this.strikeSrc = this.buf.age > 0.0801 ? 'buffer' : 'fresh'; this.strike(h, this.humanSpec(this.buf.kind)); }
+          else if (!this.helper && this.buf.age < CONFIG.input.illegalGraceMs / 1000) { this.strikeSrc = 'fresh'; this.strike(h, this.humanSpec(this.buf.kind)); }
+          else if (!this.buf.warned) { this.buf.warned = true; this.cueFlash = 0.6; }
+        } else if (!this.buf.swung && h.swingT < 0 && h.hitCD <= 0) { h.startSwing((this.ball.x - h.x) < 0 ? 'bh' : 'fh', 0); h.hitCD = 0.18; this.buf.swung = true; }
       } else if (!this.ctl[0] && (this.input.held.hit || this.input.held.soft) && this.canHit(h) && this.humanLegal(h)) {
-        this.strike(h, this.humanSpec(this.input.held.hit ? 'hit' : 'soft')); // hit held: auto-swing when a legal ball enters reach
+        this.strikeSrc = 'held'; this.strike(h, this.humanSpec(this.input.held.hit ? 'hit' : 'soft')); // hit held: auto-swing when a legal ball enters reach
       }
     }
     if (this.state === 'rally' || this.state === 'pointover') {
@@ -1206,8 +1232,38 @@ class Game {
     this.ballMesh.position.set(b.x, b.y + 0.11, b.z); this.ballMesh.rotation.x += dt * 5; this.ballMesh.rotation.z += dt * 3;
     const s = 0.17 + 0.05 * Math.min(h, 3); this.blob.position.set(b.x, 0.03, b.z); this.blob.scale.set(s, 1, s); this.blob.material.opacity = 0.55 / (1 + 0.25 * h);
     if (this.ring.visible) { const k = 1 + 0.12 * Math.sin(this.time * 9); this.ring.scale.set(k, 1, k); }
+    this.syncCues(dt);
     const lookX = b.x;
     for (const p of this.players) p.animate(dt, lookX);
+  }
+  syncCues(dt) {
+    const r = this.rules, h = this.players[0], b = this.ball, C = CONFIG.court, S = this.state, human = !this.ctl[0];
+    const rally = S === 'rally' && r.phase === 'rally' && human;
+    const incoming = rally && r.lastHitter === 1;
+    const needB = incoming && r.bounces === 0 && r.hits <= 2;
+    const inK = r.inKitchen(h.x, h.z);
+    const kcue = rally && r.bounces === 0 && ((incoming && inK) || (r.watch[0] && h.z < C.kitchen + CONFIG.player.footRadius + 0.45));
+    this.bounceRing.visible = needB;
+    if (needB) { const k = 1 + 0.15 * Math.sin(this.time * 10); this.bounceRing.position.set(b.x, 0.04, b.z); this.bounceRing.scale.set(k, 1, k); }
+    this.kitchenHi.visible = kcue; if (kcue) this.kitchenHi.material.opacity = 0.3 + 0.15 * Math.sin(this.time * 9);
+    // serve target: highlight the service box and show the aim point while the human serves
+    const sv = S === 'serve' && r.server === 0 && human;
+    this.serveHi.visible = sv;
+    if (sv) {
+      const s = r.receiveCourtSign(), sp = this.humanServeSpec(this.serve.soft || this.input.held.soft);
+      this.serveHi.position.set(s * C.width / 4, 0.03, -(C.kitchen + (C.length / 2 - C.kitchen) / 2));
+      this.serveHi.material.opacity = 0.4 + 0.12 * Math.sin(this.time * 6);
+      if (!this.serve.pending) { this.ring.position.set(sp.tx, 0.035, -sp.tz); this.ring.visible = true; }
+    }
+    const el = this.cueEl; let txt = '', tgt = null;
+    if (needB) { txt = 'LET IT BOUNCE'; this.pv.set(b.x, b.y + 0.5, b.z); tgt = this.pv; }
+    else if (kcue) { txt = 'NO VOLLEY IN THE KITCHEN'; this.pv.set(h.x, 2.5, h.z); tgt = this.pv; }
+    if (this.cueFlash > 0) this.cueFlash -= dt;
+    if (txt && this.state !== 'paused') {
+      this.pv.project(this.rig.cam);
+      el.style.display = 'block'; el.textContent = txt; el.classList.toggle('flash', this.cueFlash > 0);
+      el.style.left = Math.round((this.pv.x * 0.5 + 0.5) * innerWidth) + 'px'; el.style.top = Math.round((-this.pv.y * 0.5 + 0.5) * innerHeight) + 'px';
+    } else el.style.display = 'none';
   }
   render() { this.renderer.render(this.scene, this.rig.cam); }
   // ------------------------------------------------ test helpers (headless): advance game time without rendering

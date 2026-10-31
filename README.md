@@ -26,6 +26,7 @@ Khi đang chơi, camera đặt sau vạch cuối sân của bạn, nhìn dọc s
 | J hoặc Space | Đánh mạnh (drive); khi giao bóng là giao nhanh. Giữ phím để tự đánh khi bóng vào tầm vợt |
 | K | Đánh nhẹ: dink khi đứng gần vạch bếp, lob khi đứng sâu; khi giao bóng là giao nhẹ. Giữ phím cũng tự đánh |
 | T | Bật tắt hỗ trợ di chuyển (Assist, mặc định BẬT). Cũng bấm được nút ASSIST trên HUD |
+| R | Bật tắt Rule Helper (mặc định BẬT ở Easy và Normal, TẮT ở Hard). Cũng bấm được nút trên HUD |
 | Con lăn chuột / chụm hai ngón | Phóng to thu nhỏ camera trong giới hạn |
 | Enter | Bắt đầu / tạm dừng / tiếp tục |
 | M | Bật tắt âm thanh |
@@ -43,6 +44,15 @@ Trên điện thoại: cần joystick bên trái, hai nút HIT và SOFT bên ph�
 - Bộ đệm phím 200 ms: bấm đánh hơi sớm vẫn được tính. Giữ J/Space (hoặc K) thì game tự vung ngay khi bóng vào tầm vợt.
 - Auto-aim kiểu NES Tennis: giữ hướng lúc chạm bóng để chỉnh cú đánh (trái/phải = góc, lên = sâu hơn, xuống = ngắn hơn). Chạm bóng sớm hoặc muộn cũng làm lệch góc. Chỉ đánh được khi bóng nằm trong tầm vợt và độ cao hợp lý. Tự chọn thuận tay hoặc trái tay theo bên bóng.
 - Bóng của AI chậm hơn và có độ vòng cao hơn, nhất là ở Easy và Normal (Hard gần như giữ tốc độ cũ).
+
+### Lỗi công bằng và dễ hiểu
+
+- **Tự động đánh không bao giờ gây lỗi luật:** bộ đệm phím 200 ms, giữ phím đánh (auto-swing) và Assist đều chờ tới khi đánh hợp lệ. Khi luật hai nảy yêu cầu bóng phải nảy (đỡ giao bóng, hoặc cú thứ ba của bên giao), hoặc khi bạn đang đứng trong bếp mà bóng chưa nảy, game sẽ không vung vợt cho bạn. Chỉ một lần bấm phím đánh rõ ràng đúng lúc bóng đã trong tầm vợt mới có thể phạm lỗi luật (luật thật vẫn giữ nguyên).
+- **Rule Helper (R):** khi bật, lần bấm đánh phạm luật sẽ bị chặn (hiện chữ cảnh báo) thay vì bị xử lỗi. Sau cú volley gần bếp, nhân vật cũng không bị đẩy vào bếp do quán tính. Tắt ở Hard để chơi đúng luật 100%.
+- **Gợi ý trực quan:** vòng đỏ và chữ LET IT BOUNCE trên bóng khi bóng bắt buộc phải nảy; vùng bếp phía bạn sáng đỏ (kèm chữ NO VOLLEY IN THE KITCHEN) khi bạn đứng trong bếp mà volley sẽ phạm luật.
+- **Lý do lỗi rõ ràng:** sau mỗi lỗi hiện khoảng 2 giây dòng giải thích, ví dụ "Two-bounce rule: let the return bounce", "Kitchen volley", "Serve in kitchen", "Out", "Net".
+- **Giao bóng an toàn:** mặc định giao vào giữa ô giao bóng, đủ sâu qua bếp. Ô giao bóng được tô vàng và có vòng ngắm; giữ hướng để dịch điểm ngắm (trái/phải, lên = sâu hơn).
+- Auto-aim luôn giữ điểm ngắm trong vạch biên, nên cú đánh của bạn không tự bay ra ngoài.
 
 ## Luật tóm tắt (đánh đơn)
 
@@ -72,4 +82,4 @@ CONFIG, Rules, Ball (vật lý tự viết, bước cố định 120 Hz), Input,
 
 ## Ảnh chụp
 
-Xem thư mục `shots/` (title, transition, game, rally_closeup, mobile_portrait, mobile_landscape).
+Xem thư mục `shots/` (title, transition, game, rally_closeup, mobile_portrait, mobile_landscape, cue_bounce, cue_kitchen, fault_reason, serve_target).

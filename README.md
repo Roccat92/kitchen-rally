@@ -1,6 +1,6 @@
 # Kitchen Rally
 
-Game pickleball 1v1 (đánh đơn) chạy ngay trên trình duyệt, dựng 3D low-poly isometric như một mô hình đảo nổi: sân xanh dương, nhà câu lạc bộ mái đỏ, khán đài có mái che, hàng thông, hàng rào và bảng điểm điện tử.
+Game pickleball 1v1 (đánh đơn) chạy ngay trên trình duyệt, dựng 3D low-poly. Màn hình chính và màn kết thúc hiện góc isometric như một mô hình đảo nổi: sân xanh dương, nhà câu lạc bộ mái đỏ, khán đài có mái che, hàng thông, hàng rào và bảng điểm điện tử.
 
 Toàn bộ game nằm trong **một file `index.html`** (HTML + CSS + JS), dùng Three.js r160 nạp từ CDN unpkg. Không cần build, không cần asset ngoài.
 
@@ -18,19 +18,31 @@ Sau đó mở địa chỉ hiển thị (ví dụ http://localhost:3000 hoặc h
 
 ## Điều khiển
 
+Khi đang chơi, camera đặt sau vạch cuối sân của bạn, nhìn dọc sân kiểu NES Tennis (không xoay, lưới nằm ngang màn hình, bạn ở dưới, CPU ở trên). Điều khiển theo đúng màn hình: Lên = về phía lưới, Xuống = lùi, Trái/Phải = trái/phải trên màn hình.
+
 | Phím | Tác dụng |
 | --- | --- |
-| WASD / phím mũi tên | Di chuyển (mặc định theo hướng sân: Lên = về phía lưới) |
-| J hoặc Space | Đánh mạnh (drive); khi giao bóng là giao nhanh |
-| K | Đánh nhẹ: dink khi đứng gần vạch bếp, lob khi đứng sâu; khi giao bóng là giao nhẹ |
+| WASD / phím mũi tên | Di chuyển (Lên = về phía lưới, Trái/Phải theo màn hình) |
+| J hoặc Space | Đánh mạnh (drive); khi giao bóng là giao nhanh. Giữ phím để tự đánh khi bóng vào tầm vợt |
+| K | Đánh nhẹ: dink khi đứng gần vạch bếp, lob khi đứng sâu; khi giao bóng là giao nhẹ. Giữ phím cũng tự đánh |
+| T | Bật tắt hỗ trợ di chuyển (Assist, mặc định BẬT). Cũng bấm được nút ASSIST trên HUD |
+| Con lăn chuột / chụm hai ngón | Phóng to thu nhỏ camera trong giới hạn |
 | Enter | Bắt đầu / tạm dừng / tiếp tục |
 | M | Bật tắt âm thanh |
-| C | Đổi kiểu điều khiển: theo sân hoặc theo màn hình |
 | Q | Thoát về màn hình chính (khi đang tạm dừng) |
 
-Trên điện thoại: cần joystick bên trái, hai nút HIT và SOFT bên phải (tự hiện trên thiết bị cảm ứng, hoặc thêm `?touch=1` vào URL để thử).
+Phím A đã dùng để chạy sang trái nên phím bật tắt Assist là **T**. Phím C (đổi kiểu điều khiển) đã bỏ vì camera sau vạch cuối làm hai kiểu giống nhau.
 
-Auto-aim kiểu NES Tennis: giữ hướng lúc chạm bóng để chỉnh cú đánh (trái/phải = góc, lên = sâu hơn, xuống = ngắn hơn). Chạm bóng sớm hoặc muộn cũng làm lệch góc. Có bộ đệm phím 150 ms, và chỉ đánh được khi bóng nằm trong tầm vợt và độ cao hợp lý. Tự chọn thuận tay hoặc trái tay theo bên bóng.
+Trên điện thoại: cần joystick bên trái, hai nút HIT và SOFT bên phải (tự hiện trên thiết bị cảm ứng, hoặc thêm `?touch=1` vào URL để thử). Dọc màn hình thì sân phủ kín chiều ngang.
+
+### Cảm giác di chuyển kiểu arcade
+
+- Nhân vật đạt tốc độ tối đa 7,2 m/s sau khoảng 0,08 s và dừng gần như tức thì (giảm tốc 160 m/s²). Lúc vung vợt chỉ chậm xuống 75% tốc độ.
+- Tầm vợt rộng 1,65 m, cao từ mặt đất đến 2,4 m, hồi chiêu giữa hai cú 0,22 s.
+- Assist: khi bóng của đối thủ đang bay về phía bạn, nhân vật tự chạy về điểm đón bóng, trộn khoảng 40% với phím bạn bấm. Bấm hướng nào thì bạn vẫn là người quyết định, tắt bằng phím T.
+- Bộ đệm phím 200 ms: bấm đánh hơi sớm vẫn được tính. Giữ J/Space (hoặc K) thì game tự vung ngay khi bóng vào tầm vợt.
+- Auto-aim kiểu NES Tennis: giữ hướng lúc chạm bóng để chỉnh cú đánh (trái/phải = góc, lên = sâu hơn, xuống = ngắn hơn). Chạm bóng sớm hoặc muộn cũng làm lệch góc. Chỉ đánh được khi bóng nằm trong tầm vợt và độ cao hợp lý. Tự chọn thuận tay hoặc trái tay theo bên bóng.
+- Bóng của AI chậm hơn và có độ vòng cao hơn, nhất là ở Easy và Normal (Hard gần như giữ tốc độ cũ).
 
 ## Luật tóm tắt (đánh đơn)
 
@@ -56,4 +68,8 @@ Chạy các kiểm tra logic luật (ô giao bóng theo điểm chẵn lẻ, sid
 
 ## Cấu trúc code (trong index.html)
 
-CONFIG, Rules, Ball (vật lý tự viết, bước cố định 120 Hz), Input, AudioFX (WebAudio), Batch + Venue (đảo, sân, nhà, khán đài, cây bằng geometry gộp), CameraRig (orthographic isometric), Player, AIController, HUD, Game (máy trạng thái + vòng lặp).
+CONFIG, Rules, Ball (vật lý tự viết, bước cố định 120 Hz), Input, AudioFX (WebAudio), Batch + Venue (đảo, sân, nhà, khán đài, cây bằng geometry gộp), CameraRig (một PerspectiveCamera, trộn mượt giữa góc đảo isometric và góc sau vạch cuối sân khi chơi), Player, AIController, HUD, Game (máy trạng thái + vòng lặp).
+
+## Ảnh chụp
+
+Xem thư mục `shots/` (title, transition, game, rally_closeup, mobile_portrait, mobile_landscape).

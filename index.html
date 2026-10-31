@@ -78,11 +78,12 @@
 </div>
 
 <div id="topRight">
+  <div class="chip panel" id="btnAssist">ASSIST ON</div>
   <div class="chip panel" id="btnMute">SOUND ON</div>
   <div class="chip panel" id="btnPause">PAUSE</div>
 </div>
 
-<div id="hint" class="panel"><b>WASD / Arrows</b> move &nbsp; <b>J / Space</b> drive &nbsp; <b>K</b> dink / lob &nbsp; <b>Enter</b> pause &nbsp; <b>M</b> mute &nbsp; <b>C</b> controls: <span id="ctlMode">court</span></div>
+<div id="hint" class="panel"><b>WASD / Arrows</b> move &nbsp; <b>J / Space</b> drive &nbsp; <b>K</b> dink / lob &nbsp; <b>Enter</b> pause &nbsp; <b>M</b> mute &nbsp; <b>T</b> assist &nbsp; <b>Wheel / pinch</b> zoom</div>
 
 <div id="callout"><div class="big" id="coBig"></div><div class="sub" id="coSub"></div></div>
 
@@ -130,19 +131,19 @@ const CONFIG = {
   court:   { width: 6.10, length: 13.41, kitchen: 2.134, netSide: 0.914, netCenter: 0.864, netHalfSpan: 3.4, lineW: 0.05 },
   match:   { pointsToWin: 11, winBy: 2, bestOf: 3 },
   physics: { gravity: 9.81, drag: 0.045, restitution: 0.6, groundFriction: 0.86, ballRadius: 0.04, step: 1 / 120, rollDamp: 1.8, minImpact: 0.6 },
-  player:  { speed: 5.4, accel: 38, swingTime: 0.26, swingSlow: 0.35, reach: 1.3, minHitY: 0.08, maxHitY: 2.1,
-             footRadius: 0.12, hitCooldown: 0.3, boundX: 4.7, boundZ: 8.4, netGap: 0.45, serveZ: 0.6, serveDepth: 1.6 },
-  input:   { bufferMs: 150, deadzone: 0.2 },
-  shot:    { driveSpeed: 15, serveSpeed: 11, dinkT: 1.0, lobT: 1.75, softServeT: 1.3, dinkMaxZ: 4.4, netClear: 0.18,
+  player:  { speed: 7.2, accel: 90, decel: 160, swingTime: 0.26, swingSlow: 0.75, reach: 1.65, minHitY: 0.0, maxHitY: 2.4,
+             footRadius: 0.12, hitCooldown: 0.22, assistBlend: 0.4, assistPlanEvery: 0.07, boundX: 4.7, boundZ: 8.4, netGap: 0.45, serveZ: 0.6, serveDepth: 1.6 },
+  input:   { bufferMs: 200, deadzone: 0.2, illegalGraceMs: 80 },
+  shot:    { driveSpeed: 13.5, serveSpeed: 9.5, dinkT: 1.0, lobT: 1.75, softServeT: 1.3, dinkMaxZ: 4.4, netClear: 0.18,
              humanErr: 0.12, stretchErr: 0.3, timingSkew: 1.4, serveHeight: 0.95 },
   ai: {
-    easy:   { speed: 4.3, reaction: 0.36, err: 0.55, lobP: 0.04, dinkP: 0.4, kitchenFault: 0.07 },
-    normal: { speed: 5.2, reaction: 0.22, err: 0.30, lobP: 0.10, dinkP: 0.6, kitchenFault: 0 },
-    hard:   { speed: 6.0, reaction: 0.10, err: 0.14, lobP: 0.14, dinkP: 0.75, kitchenFault: 0 }
+    easy:   { speed: 4.8, reaction: 0.36, err: 0.55, lobP: 0.04, dinkP: 0.4, kitchenFault: 0.07, speedMul: 0.72, arc: 0.18 },
+    normal: { speed: 5.8, reaction: 0.22, err: 0.30, lobP: 0.10, dinkP: 0.6, kitchenFault: 0, speedMul: 0.82, arc: 0.12 },
+    hard:   { speed: 7.0, reaction: 0.10, err: 0.14, lobP: 0.14, dinkP: 0.75, kitchenFault: 0, speedMul: 0.95, arc: 0.05 }
   },
   serve:   { aiDelay: 1.2, release: 0.11 },
   timing:  { pointOver: 2.2, gameOver: 3.2, matchOver: 3.0 },
-  camera:  { yawDeg: 45, pitchDeg: 35, orbitSpeed: 0.12, playZoom: 0.88 },
+  camera:  { yawDeg: 45, pitchDeg: 35, islandFov: 10, orbitSpeed: 0.12, playPitchDeg: 48, playFov: 32, playFill: 0.9, topPad: 0.09, follow: 2.2, lateral: 0.3, userMin: 0.7, userMax: 1.35, blendRate: 2.8 },
   render:  { shadowMap: 2048, maxPixelRatio: 2, island: { hx: 13, hz: 15.8 } }
 };
 
@@ -345,23 +346,24 @@ class AudioFX {
 // ---------------------------------------------------------------- INPUT (keyboard + touch)
 class Input {
   constructor() {
-    this.keys = new Set(); this.joyX = 0; this.joyY = 0; this.onAction = null; this.touchId = null; this.screenRel = false;
+    this.keys = new Set(); this.held = { hit: false, soft: false }; this.joyX = 0; this.joyY = 0; this.onAction = null; this.touchId = null;
     const MAP = { ArrowLeft: 'l', KeyA: 'l', ArrowRight: 'r', KeyD: 'r', ArrowUp: 'u', KeyW: 'u', ArrowDown: 'd', KeyS: 'd' };
     this.MAP = MAP;
     addEventListener('keydown', (e) => {
       if (MAP[e.code] || e.code === 'Space' || e.code === 'Enter') e.preventDefault();
+      if (e.code === 'KeyJ' || e.code === 'Space') this.held.hit = true; else if (e.code === 'KeyK') this.held.soft = true;
       if (e.repeat) return;
       if (MAP[e.code]) { this.keys.add(MAP[e.code]); this.fire(e.code === 'ArrowLeft' || e.code === 'KeyA' ? 'left' : e.code === 'ArrowRight' || e.code === 'KeyD' ? 'right' : 'dir'); return; }
       if (e.code === 'KeyJ' || e.code === 'Space') this.fire('hit');
       else if (e.code === 'KeyK') this.fire('soft');
       else if (e.code === 'Enter') this.fire('enter');
       else if (e.code === 'KeyM') this.fire('mute');
-      else if (e.code === 'KeyC') this.fire('ctl');
+      else if (e.code === 'KeyT') this.fire('assist');
       else if (e.code === 'KeyQ') this.fire('quit');
       else if (e.code === 'Escape') this.fire('pause');
     });
-    addEventListener('keyup', (e) => { if (MAP[e.code]) this.keys.delete(MAP[e.code]); });
-    addEventListener('blur', () => this.keys.clear());
+    addEventListener('keyup', (e) => { if (MAP[e.code]) this.keys.delete(MAP[e.code]); if (e.code === 'KeyJ' || e.code === 'Space') this.held.hit = false; else if (e.code === 'KeyK') this.held.soft = false; });
+    addEventListener('blur', () => { this.keys.clear(); this.held.hit = this.held.soft = false; });
     this.setupTouch();
   }
   fire(n) { if (this.onAction) this.onAction(n); }
@@ -377,7 +379,12 @@ class Input {
     joy.addEventListener('touchmove', (e) => { e.preventDefault(); const t = find(e.changedTouches); if (t) upd(t); }, { passive: false });
     const end = (e) => { if (find(e.changedTouches)) { this.touchId = null; this.joyX = 0; this.joyY = 0; knob.style.transform = ''; } };
     joy.addEventListener('touchend', end); joy.addEventListener('touchcancel', end);
-    const btn = (id, name) => { const el = $(id); el.addEventListener('touchstart', (e) => { e.preventDefault(); this.fire('touch'); this.fire(name); }, { passive: false }); el.addEventListener('mousedown', (e) => { e.preventDefault(); this.fire(name); }); };
+    const btn = (id, name) => {
+      const el = $(id), key = name === 'soft' ? 'soft' : 'hit', up = () => { this.held[key] = false; };
+      el.addEventListener('touchstart', (e) => { e.preventDefault(); this.held[key] = true; this.fire('touch'); this.fire(name); }, { passive: false });
+      el.addEventListener('touchend', up); el.addEventListener('touchcancel', up);
+      el.addEventListener('mousedown', (e) => { e.preventDefault(); this.held[key] = true; this.fire(name); }); addEventListener('mouseup', up);
+    };
     btn('bHit', 'hit'); btn('bSoft', 'soft');
   }
   // out = [wx, wz]: desired direction in WORLD axes for the human (who attacks toward -z)
@@ -387,8 +394,7 @@ class Input {
     const m = Math.hypot(ix, iy);
     if (m < CONFIG.input.deadzone) { out[0] = 0; out[1] = 0; return out; }
     if (m > 1) { ix /= m; iy /= m; }
-    if (this.screenRel) { const s = Math.SQRT1_2; out[0] = (ix - iy) * s; out[1] = (-ix - iy) * s; }
-    else { out[0] = ix; out[1] = -iy; }
+    out[0] = ix; out[1] = -iy; // screen-aligned: the camera sits behind the human baseline, so Up = toward the net (-z), Right = +x
     return out;
   }
 }
@@ -497,14 +503,15 @@ class Venue {
   fence(B, F) {
     const fx = this.P.fx, fz = this.P.fz, H = 2.5, dark = 0x1b1b1b;
     const rail = (x0, z0, x1, z1) => { const w = Math.abs(x1 - x0), d = Math.abs(z1 - z0); B.box((x0 + x1) / 2, H, (z0 + z1) / 2, w || 0.07, 0.07, d || 0.07, dark); };
-    const n = (x0, z0, x1, z1) => {
+    // the near end (z = +fz, between the play camera and the human) is only a low rail so it never blocks the view
+    const n = (x0, z0, x1, z1, hh = H, glass = true) => {
       const len = Math.hypot(x1 - x0, z1 - z0), cnt = Math.max(1, Math.round(len / 1.7));
-      for (let i = 0; i <= cnt; i++) { const t = i / cnt; B.stack(lerp(x0, x1, t), 0, lerp(z0, z1, t), 0.1, H, 0.1, dark); }
-      rail(x0, z0, x1, z1);
+      for (let i = 0; i <= cnt; i++) { const t = i / cnt; B.stack(lerp(x0, x1, t), 0, lerp(z0, z1, t), 0.1, hh, 0.1, dark); }
       const w = Math.abs(x1 - x0), d = Math.abs(z1 - z0);
-      F.box((x0 + x1) / 2, 0.75 + (H - 0.75) / 2, (z0 + z1) / 2, w || 0.03, H - 0.75, d || 0.03, 0x111111);
+      B.box((x0 + x1) / 2, hh, (z0 + z1) / 2, w || 0.07, 0.07, d || 0.07, dark);
+      if (glass) F.box((x0 + x1) / 2, 0.75 + (hh - 0.75) / 2, (z0 + z1) / 2, w || 0.03, hh - 0.75, d || 0.03, 0x111111);
     };
-    n(-fx, -fz, fx, -fz); n(-fx, fz, fx, fz); n(-fx, -fz, -fx, fz); n(fx, -fz, fx, fz);
+    n(-fx, -fz, fx, -fz); n(-fx, fz, fx, fz, 0.9, false); n(-fx, -fz, -fx, fz); n(fx, -fz, fx, fz);
   }
   banners() {
     const { tex } = textTexture(512, 64, (g, w, h) => {
@@ -514,9 +521,11 @@ class Venue {
     const mat = new THREE.MeshLambertMaterial({ map: tex });
     const fx = this.P.fx, fz = this.P.fz, h = 0.7, y = 0.45;
     const mk = (len, x, z, ry, off) => {
-      const m = new THREE.Mesh(new THREE.PlaneGeometry(len, h), mat); m.position.set(x + off[0], y, z + off[1]); m.rotation.y = ry; m.receiveShadow = true; this.scene.add(m);
+      for (const flip of [0, Math.PI]) {
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(len, h), mat); m.position.set(x + off[0] * (flip ? -1 : 1), y, z + off[1] * (flip ? -1 : 1)); m.rotation.y = ry + flip; m.receiveShadow = true; this.scene.add(m);
+      }
     };
-    // all banners face the camera side (+x/+z) so the lettering reads
+    // two-sided boards so the lettering reads from the play camera and from the island view
     mk(4.4, -2.4, -fz, 0, [0, 0.07]); mk(4.4, 2.4, -fz, 0, [0, 0.07]);
     mk(4.4, -2.4, fz, 0, [0, 0.07]); mk(4.4, 2.4, fz, 0, [0, 0.07]);
     const L = 5.4;
@@ -580,7 +589,7 @@ class Venue {
   props(B) {
     // light poles at the four court corners
     const fx = this.P.fx + 0.35, fz = this.P.fz + 0.35;
-    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    for (const sx of [-1, 1]) for (const sz of [-1]) { // far corners only, so the play camera view stays clear
       B.stack(sx * fx, 0, sz * fz, 0.18, 6.0, 0.18, 0x303338);
       B.stack(sx * (fx - 0.45), 5.9, sz * fz, 0.9, 0.08, 0.08, 0x303338);
       B.box(sx * (fx - 0.9), 5.85, sz * fz, 0.55, 0.16, 0.4, 0xfff0b0);
@@ -600,11 +609,11 @@ class Venue {
     const o = textTexture(512, 256, () => {}); this.board = o;
     const mat = new THREE.MeshBasicMaterial({ map: o.tex });
     const m = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.6), mat);
-    m.position.set(-5.8, 4.1, 0.0); m.rotation.y = Math.PI / 4; this.scene.add(m);
+    m.position.set(-6.4, 3.4, -9.4); m.rotation.y = Math.PI / 8; this.scene.add(m);
     const back = new THREE.Mesh(new THREE.BoxGeometry(3.4, 1.8, 0.12), new THREE.MeshLambertMaterial({ color: 0x1b1b1b }));
-    back.position.copy(m.position); back.rotation.y = Math.PI / 4; back.translateZ(-0.09); back.castShadow = true; this.scene.add(back);
+    back.position.copy(m.position); back.rotation.y = Math.PI / 8; back.translateZ(-0.09); back.castShadow = true; this.scene.add(back);
     const post = new THREE.Mesh(new THREE.BoxGeometry(0.2, 3.4, 0.2), new THREE.MeshLambertMaterial({ color: 0x303338 }));
-    post.position.set(-5.9, 1.7, -0.1); post.castShadow = true; this.scene.add(post);
+    post.position.set(-6.5, 1.7, -9.5); post.castShadow = true; this.scene.add(post);
   }
   updateBoard(rules) {
     const o = this.board, g = o.ctx; g.clearRect(0, 0, 512, 256);
@@ -646,35 +655,84 @@ class Venue {
   }
 }
 
-// ---------------------------------------------------------------- CAMERA RIG (orthographic isometric)
+// ---------------------------------------------------------------- CAMERA RIG
+// One perspective camera, two poses blended smoothly:
+//  - island: classic isometric diorama (45 deg yaw, 35 deg pitch, very narrow FOV so it reads as orthographic), slow orbit on the title
+//  - play:   NES-Tennis style, zero yaw, centred on the court's long axis behind the human baseline, ~48 deg pitch, FOV 32,
+//            court fills ~90% of the viewport; it only drifts sideways a little to follow the action, never rotates.
 class CameraRig {
   constructor() {
-    this.cam = new THREE.OrthographicCamera(-10, 10, 10, -10, 1, 400);
-    this.base = CONFIG.camera.yawDeg * Math.PI / 180; this.yaw = this.base; this.pitch = CONFIG.camera.pitchDeg * Math.PI / 180;
-    this.zoom = 1; this.aspect = 1; this.W = 1; this.H = 1;
-    const hx = CONFIG.render.island.hx, hz = CONFIG.render.island.hz;
-    this.pts = []; for (const x of [-hx, hx]) for (const z of [-hz, hz]) for (const y of [-6.4, 5.5]) this.pts.push([x, y, z]);
+    this.cam = new THREE.PerspectiveCamera(10, 1, 1, 1500);
+    this.base = CONFIG.camera.yawDeg * Math.PI / 180; this.iy = this.base; this.k = 0; this.userZoom = 1; this.aspect = 1;
+    this.W = 1; this.H = 1; this.fx = 0; this.tx = 0; this.dt = 0.016; this.play = null; this.initTx = false;
+    const hx = CONFIG.render.island.hx, hz = CONFIG.render.island.hz, C = CONFIG.court;
+    this.isl = []; for (const x of [-hx, hx]) for (const z of [-hz, hz]) for (const y of [-6.4, 5.5]) this.isl.push([x, y, z]);
+    this.crt = []; for (const x of [-1, 1]) for (const z of [-1, 1]) for (const y of [0, 2.5]) this.crt.push([x * (C.width / 2 + 0.6), y, z * (C.length / 2 + 1.0)]); // includes head height
+    this.b = { rx: 0, rz: 0, ux: 0, uy: 0, uz: 0, dx: 0, dy: 0, dz: 0 }; this.ex = { minY: 0, maxY: 0, maxX: 0 };
     this.place();
   }
-  resize(w, h) { this.W = w; this.H = h; this.aspect = w / h; this.place(); }
-  update(dt, orbit) {
-    if (orbit) this.yaw += CONFIG.camera.orbitSpeed * dt;
-    else {
-      let d = (this.base - this.yaw) % (2 * Math.PI); if (d > Math.PI) d -= 2 * Math.PI; if (d < -Math.PI) d += 2 * Math.PI;
-      this.yaw += d * Math.min(1, dt * 3.5);
+  resize(w, h) { this.aspect = w / h; this.W = w; this.H = h; this.play = null; this.place(); }
+  setUserZoom(z) { this.userZoom = clamp(z, CONFIG.camera.userMin, CONFIG.camera.userMax); }
+  setFocus(x) { this.fx = x; }
+  // mode: 'title' (island + slow orbit), 'end' (island, fixed), 'play'
+  update(dt, mode) {
+    if (mode === 'title') this.iy += CONFIG.camera.orbitSpeed * dt;
+    else { let d = (this.base - this.iy) % (2 * Math.PI); if (d > Math.PI) d -= 2 * Math.PI; if (d < -Math.PI) d += 2 * Math.PI; this.iy += d * Math.min(1, dt * 3.5); }
+    const tk = mode === 'play' ? 1 : 0; this.k += (tk - this.k) * Math.min(1, dt * CONFIG.camera.blendRate); if (Math.abs(this.k - tk) < 0.0005) this.k = tk;
+    this.dt = dt; this.place();
+  }
+  basis(yaw, pitch) {
+    const b = this.b, cp = Math.cos(pitch), sp = Math.sin(pitch);
+    b.rx = Math.cos(yaw); b.rz = -Math.sin(yaw); b.ux = -sp * Math.sin(yaw); b.uy = cp; b.uz = -sp * Math.cos(yaw);
+    b.dx = Math.sin(yaw) * cp; b.dy = sp; b.dz = Math.cos(yaw) * cp;
+  }
+  // NDC extents of points seen from distance `dist` along the current basis, aimed at target (tx,ty,tz)
+  extents(pts, dist, th, tx, ty, tz) {
+    const b = this.b, e = this.ex, A = this.aspect; e.minY = 1e9; e.maxY = -1e9; e.maxX = 0;
+    for (const q of pts) {
+      const x = q[0] - tx, y = q[1] - ty, z = q[2] - tz, depth = dist - (x * b.dx + y * b.dy + z * b.dz);
+      const nx = (x * b.rx + z * b.rz) / (depth * th * A), ny = (x * b.ux + y * b.uy + z * b.uz) / (depth * th);
+      if (Math.abs(nx) > e.maxX) e.maxX = Math.abs(nx); if (ny < e.minY) e.minY = ny; if (ny > e.maxY) e.maxY = ny;
     }
-    this.zoom += ((orbit ? 1 : CONFIG.camera.playZoom) - this.zoom) * Math.min(1, dt * 3);
-    this.place();
+    return e;
+  }
+  fitDist(pts, th, fill, tx, ty, tz, fillY = fill, cy = 0) {
+    let lo = 4, hi = 2000;
+    for (let i = 0; i < 28; i++) { const m = (lo + hi) / 2, e = this.extents(pts, m, th, tx, ty, tz); if (e.maxX > fill || Math.abs(e.minY - cy) > fillY || Math.abs(e.maxY - cy) > fillY) lo = m; else hi = m; }
+    return hi;
+  }
+  computePlay() {
+    const K = CONFIG.camera, pitch = K.playPitchDeg * Math.PI / 180, fov = K.playFov * Math.PI / 180, th = Math.tan(fov / 2);
+    this.basis(0, pitch); let tz = 0, dist = 30, e;
+    // leave room under the HUD: content is fitted into the lower part of the viewport
+    const hudPx = this.H < 460 ? 52 : this.W < 640 ? 100 : 66, pad = Math.min(0.45, 2 * hudPx / this.H), cy = -pad / 2, fillY = K.playFill - pad / 2;
+    for (let it = 0; it < 6; it++) {
+      dist = this.fitDist(this.crt, th, K.playFill, 0, 0, tz, fillY, cy); e = this.extents(this.crt, dist, th, 0, 0, tz);
+      const c = (e.minY + e.maxY) / 2 - cy; tz += -c * dist * th / Math.sin(pitch);
+    }
+    e = this.extents(this.crt, dist, th, 0, 0, tz);
+    const near = dist - (CONFIG.court.length / 2 + 1.0) * Math.cos(pitch) - 2.5 * Math.sin(pitch);
+    this.play = { pitch, fov, th, dist, tz, shift: Math.max(0, 1 - e.maxX) * near * th * this.aspect * 0.8 };
   }
   place() {
-    const y = this.yaw, p = this.pitch, cp = Math.cos(p), sp = Math.sin(p), c = this.cam;
-    c.position.set(Math.sin(y) * cp * 120, sp * 120, Math.cos(y) * cp * 120); c.lookAt(0, 0, 0);
-    // screen axes in world space
-    const rx = Math.cos(y), rz = -Math.sin(y), ux = -sp * Math.sin(y), uy = cp, uz = -sp * Math.cos(y);
-    let minR = 1e9, maxR = -1e9, minU = 1e9, maxU = -1e9;
-    for (const q of this.pts) { const r = q[0] * rx + q[2] * rz, u = q[0] * ux + q[1] * uy + q[2] * uz; if (r < minR) minR = r; if (r > maxR) maxR = r; if (u < minU) minU = u; if (u > maxU) maxU = u; }
-    const hw = (maxR - minR) / 2, hh = (maxU - minU) / 2, s = Math.max(hh, hw / this.aspect) * 1.07 * this.zoom, cr = (maxR + minR) / 2, cu = (maxU + minU) / 2 + (1 - this.zoom) * 0.0;
-    c.left = cr - s * this.aspect; c.right = cr + s * this.aspect; c.top = cu + s; c.bottom = cu - s; c.updateProjectionMatrix();
+    const K = CONFIG.camera, c = this.cam, ip = K.pitchDeg * Math.PI / 180, ifov = K.islandFov * Math.PI / 180, ith = Math.tan(ifov / 2);
+    this.basis(this.iy, ip);
+    const di = this.fitDist(this.isl, ith, 1 / 1.07, 0, -0.45, 0);
+    let yaw = this.iy, pitch = ip, fov = ifov, dist = di, tx = 0, ty = -0.45, tz = 0;
+    if (this.k > 0) {
+      if (!this.play) this.computePlay();
+      const P = this.play, e = this.k * this.k * (3 - 2 * this.k);
+      const lim = Math.max(P.shift, (1 - this.userZoom) * 4);
+      const want = clamp(K.lateral * this.fx, -lim, lim);
+      if (!this.initTx) { this.tx = want; this.initTx = true; }
+      this.tx += (want - this.tx) * Math.min(1, this.dt * K.follow); this.tx = clamp(this.tx, -lim, lim);
+      let d = (0 - this.iy) % (2 * Math.PI); if (d > Math.PI) d -= 2 * Math.PI; if (d < -Math.PI) d += 2 * Math.PI;
+      yaw = this.iy + d * e; pitch = lerp(ip, P.pitch, e); fov = lerp(ifov, P.fov, e);
+      dist = Math.exp(lerp(Math.log(di), Math.log(P.dist * this.userZoom), e)); tx = this.tx * e; ty = lerp(-0.45, 0, e); tz = lerp(0, P.tz, e);
+    }
+    const cp = Math.cos(pitch);
+    c.position.set(tx + Math.sin(yaw) * cp * dist, ty + Math.sin(pitch) * dist, tz + Math.cos(yaw) * cp * dist);
+    c.lookAt(tx, ty, tz); c.fov = fov * 180 / Math.PI; c.aspect = this.aspect; c.updateProjectionMatrix();
   }
 }
 
@@ -709,9 +767,10 @@ class Player {
   place(x, z) { this.x = x; this.z = z; this.vx = this.vz = 0; this.cx = this.cz = 0; this.swingT = -1; this.hitCD = 0; this.celebrate = 0; this.turn = 0; }
   startSwing(kind, startFrac) { this.swingKind = kind; this.swingT = startFrac * CONFIG.player.swingTime; }
   update(dt, freeze) {
-    const P = CONFIG.player, sp = this.maxSpeed * (this.swingT >= 0 ? P.swingSlow : 1) * (freeze ? 0 : 1), a = P.accel * dt;
-    const dx = this.cx * sp - this.vx, dz = this.cz * sp - this.vz;
-    this.vx += clamp(dx, -a, a); this.vz += clamp(dz, -a, a);
+    const P = CONFIG.player, sp = this.maxSpeed * (this.swingT >= 0 ? P.swingSlow : 1) * (freeze ? 0 : 1);
+    // arcade feel: near-instant acceleration, even snappier stop (no ice sliding). Velocity change is applied as a vector.
+    const dx = this.cx * sp - this.vx, dz = this.cz * sp - this.vz, dm = Math.hypot(dx, dz);
+    if (dm > 1e-6) { const a = (Math.abs(this.cx) + Math.abs(this.cz) > 0.01 ? P.accel : P.decel) * dt, k = dm <= a ? 1 : a / dm; this.vx += dx * k; this.vz += dz * k; }
     this.x += this.vx * dt; this.z += this.vz * dt;
     if (this.x < this.xMin) { this.x = this.xMin; this.vx = 0; } else if (this.x > this.xMax) { this.x = this.xMax; this.vx = 0; }
     if (this.z < this.zMin) { this.z = this.zMin; this.vz = 0; } else if (this.z > this.zMax) { this.z = this.zMax; this.vz = 0; }
@@ -826,11 +885,11 @@ class AIController {
     if (type === 'drive') { tx = away * (Math.random() < 0.25 ? 2.6 : rand(0.8, 2.3)); tz = oppZ < 3.6 ? rand(5.0, 6.1) : rand(3.4, 5.6); }
     else if (type === 'dink') { tx = away * rand(0.4, 2.0); tz = rand(0.8, 1.9); }
     else { tx = away * rand(0.5, 2.0); tz = rand(5.2, 6.2); }
-    return { type, tx, tz, sd0: d.err };
+    return { type, tx, tz, sd0: d.err, mul: d.speedMul, arc: d.arc };
   }
   serveSpec() {
     const s = this.g.rules.receiveCourtSign();
-    return { type: 'serve', tx: s * rand(0.9, 2.5), tz: rand(3.6, 6.0), sd0: this.d.err * 0.9 };
+    return { type: 'serve', tx: s * rand(0.9, 2.5), tz: rand(3.6, 6.0), sd0: this.d.err * 0.9, mul: this.d.speedMul, arc: this.d.arc };
   }
 }
 
@@ -880,14 +939,23 @@ class Game {
     this.ring = new THREE.Mesh(new THREE.RingGeometry(0.3, 0.4, 28).rotateX(-Math.PI / 2), rm); this.ring.renderOrder = 6; this.ring.visible = false; this.scene.add(this.ring);
 
     this.diff = 'normal'; this.state = 'title'; this.prev = 'serve'; this.time = 0; this.stateT = 0; this.acc = 0; this.cheerT = 0; this.cheerAt = -1;
-    this.buf = { t: 0, kind: 'hit', swung: false }; this.serve = { pending: false, t: 0, soft: false };
+    this.buf = { t: 0, age: 0, kind: 'hit', swung: false }; this.serve = { pending: false, t: 0, soft: false };
     this.callouts = []; this.pending = null; this.startPos = [{ x: 0, z: 0 }, { x: 0, z: 0 }];
     this.tw = [0, 0]; this.sol = {}; this.tmpSim = {}; this.tmpSol = {};
     this.ctl = [null, new AIController(this, this.players[1], this.diff)];
+    this.assist = true; // auto-move assist for the human (toggle: T)
+    this.assistCtl = new AIController(this, this.players[0], 'normal'); this.players[0].maxSpeed = CONFIG.player.speed;
+    this.assistCtl.d = Object.assign({}, CONFIG.ai.normal, { speed: CONFIG.player.speed }); this.assistCtl.react = 0;
     this.seen = false; try { this.seen = localStorage.getItem('kr_seen') === '1'; } catch (e) { /* ignore */ }
     this.input.onAction = (n) => this.onAction(n);
     this.bindUI();
     this.resize(); addEventListener('resize', () => this.resize());
+    canvas.addEventListener('wheel', (e) => { e.preventDefault(); this.rig.setUserZoom(this.rig.userZoom * Math.exp(e.deltaY * 0.0012)); }, { passive: false });
+    let pinch = 0;
+    const pd = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+    canvas.addEventListener('touchstart', (e) => { if (e.touches.length === 2) pinch = pd(e.touches); }, { passive: true });
+    canvas.addEventListener('touchmove', (e) => { if (e.touches.length === 2 && pinch > 0) { const d = pd(e.touches); this.rig.setUserZoom(this.rig.userZoom * pinch / d); pinch = d; e.preventDefault(); } }, { passive: false });
+    canvas.addEventListener('touchend', () => { pinch = 0; });
     this.layout(); this.hud.update(this.rules); this.venue.updateBoard(this.rules); this.hud.screen('scrTitle');
     if (matchMedia('(pointer:coarse)').matches || 'ontouchstart' in window || /[?&]touch=1/.test(location.search)) document.body.classList.add('touch');
   }
@@ -902,6 +970,7 @@ class Game {
     $('btnQuit').addEventListener('click', (e) => { e.stopPropagation(); this.onAction('quit'); });
     $('btnAgain').addEventListener('click', (e) => { e.stopPropagation(); this.onAction('enter'); });
     $('btnMute').addEventListener('click', () => this.onAction('mute'));
+    $('btnAssist').addEventListener('click', () => this.onAction('assist'));
     $('btnPause').addEventListener('click', () => this.onAction('pause'));
   }
   setDiff(d) {
@@ -920,7 +989,7 @@ class Game {
     switch (n) {
       case 'touch': document.body.classList.add('touch'); break;
       case 'mute': this.audio.setMuted(!this.audio.muted); $('btnMute').textContent = this.audio.muted ? 'SOUND OFF' : 'SOUND ON'; this.audio.sfx('blip'); break;
-      case 'ctl': this.input.screenRel = !this.input.screenRel; $('ctlMode').textContent = this.input.screenRel ? 'screen' : 'court'; this.audio.sfx('blip'); break;
+      case 'assist': this.assist = !this.assist; $('btnAssist').textContent = this.assist ? 'ASSIST ON' : 'ASSIST OFF'; this.audio.sfx('blip'); break;
       case 'left': case 'right':
         if (S === 'title') { const L = ['easy', 'normal', 'hard'], i = L.indexOf(this.diff); this.setDiff(L[clamp(i + (n === 'left' ? -1 : 1), 0, 2)]); }
         break;
@@ -936,7 +1005,7 @@ class Game {
         if (S === 'title' || S === 'howto' || S === 'end') { this.onAction('enter'); break; }
         if (S === 'paused' || this.ctl[0]) break;
         if (S === 'serve') { if (this.rules.server === 0 && !this.serve.pending) this.beginServe(this.players[0], n === 'soft'); }
-        else if (S === 'rally') { this.buf.t = CONFIG.input.bufferMs / 1000; this.buf.kind = n; this.buf.swung = false; }
+        else if (S === 'rally') { this.buf.t = CONFIG.input.bufferMs / 1000; this.buf.age = 0; this.buf.kind = n; this.buf.swung = false; }
         break;
     }
   }
@@ -989,6 +1058,18 @@ class Game {
     return this.rules.phase === 'rally' && b.live && this.rules.lastHitter !== p.id && p.hitCD <= 0 && b.z * p.sz > 0 &&
       b.y >= P.minHitY && b.y <= P.maxHitY && Math.hypot(b.x - p.x, b.z - p.z) <= P.reach;
   }
+  humanLegal(p) { const r = this.rules, v = r.bounces === 0; return !(v && r.hits <= 2) && !(v && r.inKitchen(p.x, p.z)); }
+  // subtle auto-move assist: blend a nudge toward the predicted intercept into the human's own input
+  applyAssist(dt, p) {
+    const r = this.rules, a = this.assistCtl;
+    if (!this.assist || r.phase !== 'rally' || r.lastHitter === 0) return;
+    a.replanT -= dt; if (a.replanT <= 0) { a.replan(); a.replanT = CONFIG.player.assistPlanEvery; }
+    if (a.letGo) return;
+    const dx = a.plan.x - p.x, dz = a.plan.z - p.z, m = Math.hypot(dx, dz);
+    if (m < 0.08) return;
+    const k = Math.min(1, m / 0.5) / m, w = CONFIG.player.assistBlend;
+    p.cx = (1 - w) * p.cx + w * dx * k; p.cz = (1 - w) * p.cz + w * dz * k;
+  }
   humanSpec(kind) {
     const p = this.players[0], b = this.ball, S = CONFIG.shot, P = CONFIG.player;
     this.input.world(this.tw); const dx = this.tw[0], up = -this.tw[1], d = 0.5 + 0.5 * up;
@@ -1005,7 +1086,9 @@ class Game {
     const b = this.ball, C = CONFIG.court, S = CONFIG.shot, sgn = -p.sz;
     const tx = clamp(spec.tx + gauss() * sd, -4.3, 4.3), tzw = sgn * Math.max(0.35, spec.tz + gauss() * sd * 1.3);
     const dist = Math.hypot(tx - b.x, tzw - b.z);
-    let T = spec.type === 'drive' ? dist / S.driveSpeed : spec.type === 'serve' ? dist / S.serveSpeed : spec.type === 'servesoft' ? S.softServeT : spec.type === 'dink' ? S.dinkT : S.lobT;
+    const mul = spec.mul || 1;
+    let T = spec.type === 'drive' ? dist / (S.driveSpeed * mul) : spec.type === 'serve' ? dist / (S.serveSpeed * mul) : spec.type === 'servesoft' ? S.softServeT : spec.type === 'dink' ? S.dinkT : S.lobT;
+    if (spec.arc && (spec.type === 'drive' || spec.type === 'serve')) T *= 1 + spec.arc; // extra loft so incoming balls stay returnable
     T = Math.max(T, 0.5);
     let sol = this.sol;
     for (let i = 0; i < 9; i++) {
@@ -1063,7 +1146,9 @@ class Game {
   }
   update(dt) {
     this.time += dt;
-    this.rig.update(dt, this.state === 'title');
+    const S0 = this.state, cm = (S0 === 'title' || S0 === 'howto') ? 'title' : S0 === 'end' ? 'end' : 'play';
+    { const b = this.ball, p0 = this.players[0], p1 = this.players[1]; this.rig.setFocus(0.5 * b.x + 0.25 * p0.x + 0.25 * p1.x); }
+    this.rig.update(dt, cm);
     this.venue.updateSpectators(this.time, this.cheerT);
     if (this.cheerT > 0) this.cheerT -= dt;
     const S = this.state;
@@ -1078,6 +1163,7 @@ class Game {
     if (this.ctl[0]) this.ctl[0].think(dt);
     else if (S === 'serve' || S === 'rally') { this.input.world(this.tw); h.cx = this.tw[0]; h.cz = this.tw[1]; }
     else { h.cx = 0; h.cz = 0; }
+    if (!this.ctl[0] && S === 'rally') this.applyAssist(dt, h);
     if (this.ctl[1]) this.ctl[1].think(dt);
     if (S === 'pointover') for (const p of this.players) { p.cx = 0; p.cz = 0; }
     for (const p of this.players) { this.applyBounds(p); p.update(dt, false); }
@@ -1087,9 +1173,14 @@ class Game {
     }
     if (this.state === 'rally') {
       if (!this.ctl[0] && this.buf.t > 0) {
-        this.buf.t -= dt;
-        if (this.canHit(h)) this.strike(h, this.humanSpec(this.buf.kind));
+        this.buf.t -= dt; this.buf.age += dt;
+        // forgiving buffer: a press made well before the ball is in reach waits for a legal contact (after the bounce);
+        // a deliberate press right at contact still fires, so real two-bounce / kitchen faults can happen
+        if (this.canHit(h) && (this.humanLegal(h) || this.buf.age < CONFIG.input.illegalGraceMs / 1000)) this.strike(h, this.humanSpec(this.buf.kind));
+        else if (this.canHit(h)) { /* wait for legal contact */ }
         else if (!this.buf.swung && h.swingT < 0 && h.hitCD <= 0) { h.startSwing((this.ball.x - h.x) < 0 ? 'bh' : 'fh', 0); h.hitCD = 0.18; this.buf.swung = true; }
+      } else if (!this.ctl[0] && (this.input.held.hit || this.input.held.soft) && this.canHit(h) && this.humanLegal(h)) {
+        this.strike(h, this.humanSpec(this.input.held.hit ? 'hit' : 'soft')); // hit held: auto-swing when a legal ball enters reach
       }
     }
     if (this.state === 'rally' || this.state === 'pointover') {

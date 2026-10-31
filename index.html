@@ -28,6 +28,8 @@
   #callout .big { font-family:Georgia,serif; font-weight:700; font-style:italic; font-size:clamp(34px,8vw,84px); color:#fff; text-shadow:0 3px 0 #17402a,0 0 18px rgba(0,0,0,.35); letter-spacing:2px; }
   #callout .sub { max-width:92vw; margin-top:4px; display:inline-block; padding:3px 12px; background:rgba(24,70,46,.9); border-radius:6px; font-size:clamp(11px,1.6vw,16px); letter-spacing:2px; text-transform:uppercase; }
   #callout.show { animation:pop 1.9s ease-out forwards; }
+  #youTag { position:fixed; left:0; top:0; transform:translate(-50%,-100%); padding:1px 8px; border-radius:8px; background:rgba(255,255,255,.92); color:#c0392b; font-weight:800; font-size:11px; letter-spacing:1px; pointer-events:none; display:none; box-shadow:0 1px 4px rgba(0,0,0,.35); }
+  #callP { position:fixed; left:0; top:0; transform:translate(-50%,-100%); padding:2px 10px; border-radius:10px; background:#f2922b; color:#fff; font-weight:800; font-size:13px; letter-spacing:1px; pointer-events:none; display:none; box-shadow:0 2px 6px rgba(0,0,0,.35); }
   #cue { position:fixed; left:0; top:0; transform:translate(-50%,-100%); padding:4px 12px; border-radius:8px; background:rgba(214,40,40,.94); color:#fff; font-weight:800; font-size:13px; letter-spacing:2px; pointer-events:none; display:none; white-space:nowrap; box-shadow:0 2px 8px rgba(0,0,0,.35); }
   #cue.flash { background:#ff1f1f; font-size:16px; }
   @keyframes pop { 0%{opacity:0;transform:translate(-50%,-40%) scale(.6)} 12%{opacity:1;transform:translate(-50%,-50%) scale(1.08)} 22%{transform:translate(-50%,-50%) scale(1)} 80%{opacity:1} 100%{opacity:0;transform:translate(-50%,-56%) scale(1)} }
@@ -74,9 +76,9 @@
 <div id="brand"><h1>Kitchen Rally</h1><small>Pickleball Open</small></div>
 
 <div id="score" class="panel">
-  <div class="side you serving" id="sideYou"><span class="dot"></span>YOU <b id="sYou">0</b></div>
+  <div class="side you serving" id="sideYou"><span class="dot"></span><span id="nmYou">YOU</span> <b id="sYou">0</b></div>
   <div class="mid"><div id="callTxt">0 - 0</div><div id="callSub">server - receiver</div><div id="games">GAME 1 &middot; GAMES 0-0</div></div>
-  <div class="side cpu" id="sideCpu"><b id="sCpu">0</b> CPU <span class="dot"></span></div>
+  <div class="side cpu" id="sideCpu"><b id="sCpu">0</b> <span id="nmCpu">CPU</span> <span class="dot"></span></div>
 </div>
 
 <div id="topRight">
@@ -88,23 +90,24 @@
 
 <div id="hint" class="panel"><b>WASD / Arrows</b> move &nbsp; <b>J / Space</b> drive &nbsp; <b>K</b> dink / lob &nbsp; <b>Enter</b> pause &nbsp; <b>M</b> mute &nbsp; <b>T</b> assist &nbsp; <b>R</b> rule helper &nbsp; <b>Wheel / pinch</b> zoom</div>
 
-<div id="cue"></div>
+<div id="cue"></div><div id="youTag">&#9660; YOU</div><div id="callP"></div>
 <div id="callout"><div class="big" id="coBig"></div><div class="sub" id="coSub"></div></div>
 
 <div id="scrTitle" class="screen"><div class="card panel">
-  <p class="lead">Singles &middot; First to 11 &middot; Best of 3</p>
+  <p class="lead" id="titleLead">Doubles &middot; First to 11 &middot; Best of 3</p>
   <h2>Kitchen Rally</h2>
   <p>A tiny floating pickleball club. Stay out of the kitchen, let the serve bounce, win the rally.</p>
+  <div class="diffs" id="modes"><button class="btn sel" data-m="doubles">DOUBLES 2v2</button><button class="btn" data-m="singles">SINGLES</button></div>
   <div class="diffs" id="diffs"><button class="btn" data-d="easy">EASY</button><button class="btn sel" data-d="normal">NORMAL</button><button class="btn" data-d="hard">HARD</button></div>
   <div class="prompt" id="startPrompt">PRESS ENTER / TAP TO START</div>
-  <p class="lead" style="margin-top:10px">&larr; &rarr; change difficulty</p>
+  <p class="lead" style="margin-top:10px">&uarr; &darr; mode &nbsp; &larr; &rarr; difficulty</p>
 </div></div>
 
 <div id="scrHow" class="screen"><div class="card panel">
   <h2>How to play</h2>
   <div class="rule"><b>Two-bounce rule:</b> the serve must bounce, and so must the return, before anyone may volley.</div>
   <div class="rule"><b>Kitchen rule:</b> no volleys while standing in the kitchen (the zone by the net, line included). You may step in to hit a ball that has bounced.</div>
-  <p class="lead">Only the server scores &middot; hold a direction to aim</p>
+  <p class="lead">Only the serving team scores &middot; doubles call: serving score - receiving score - server 1 or 2 &middot; hold a direction to aim</p>
   <div class="prompt">PRESS ENTER / TAP TO SERVE</div>
 </div></div>
 
@@ -153,15 +156,33 @@ const CONFIG = {
 
 // ---------------------------------------------------------------- RULES
 // Players: 0 = human on the +z side, 1 = AI on the -z side. Net at z = 0.
+// Singles: player ids 0 (human, +z side) and 1 (AI). Doubles: ids 0 + 2 = team 0 (+z side), ids 1 + 3 = team 1 (-z side); team = id & 1.
+// `server` is always the serving TEAM index (so score[], games[] are per team). In doubles `serverId` is the player serving and
+// `serverNum` is 1 or 2 (the game starts at 0-0-2: only the first server serves). `pos[team] = [rightPlayerId, leftPlayerId]` (facing the net).
 class Rules {
-  constructor(cfg) { this.c = cfg; this.resetMatch(); }
+  constructor(cfg, doubles = false) { this.c = cfg; this.doubles = !!doubles; this.resetMatch(); }
+  static teamOf(id) { return id & 1; }
   resetMatch() { this.games = [0, 0]; this.gameIndex = 0; this.matchWinner = -1; this.startGame(); }
-  startGame() { this.score = [0, 0]; this.server = this.gameIndex % 2; this.gameWinner = -1; this.newPoint(); }
+  startGame() {
+    this.score = [0, 0]; this.server = this.gameIndex % 2; this.gameWinner = -1;
+    this.pos = [[0, 2], [1, 3]]; this.serverNum = this.doubles ? 2 : 1; this._sid = this.pos[this.server][0];
+    this.newPoint();
+  }
+  get serverId() { return this.doubles ? this._sid : this.server; }
+  partnerOf(id) { return this.doubles ? id ^ 2 : -1; }
+  // world x sign of the court a doubles player stands in (human faces -z so its right is +x; the far team's right is -x)
+  slotSign(id) { const t = Rules.teamOf(id), slot = this.pos[t].indexOf(id); return (slot === 0 ? 1 : -1) * (t === 0 ? 1 : -1); }
+  receiverId() {
+    if (!this.doubles) return 1 - this.server;
+    const want = this.receiveCourtSign(), team = 1 - this.server;
+    return this.slotSign(this.pos[team][0]) === want ? this.pos[team][0] : this.pos[team][1];
+  }
   nextGame() { this.gameIndex++; this.startGame(); }
-  newPoint() { this.phase = 'serve'; this.lastHitter = -1; this.hits = 0; this.bounces = 0; this.netTouched = false; this.watch = [false, false]; }
+  newPoint() { this.phase = 'serve'; this.lastHitter = -1; this.hits = 0; this.bounces = 0; this.netTouched = false; this.watch = [false, false, false, false]; }
   static sideOf(z) { return z > 0 ? 0 : 1; }
   // x sign (world) of the service court the server stands in: even score = server's right court
   serveCourtSign() {
+    if (this.doubles) return this.slotSign(this._sid);
     const even = (this.score[this.server] & 1) === 0;
     const right = this.server === 0 ? 1 : -1; // human faces -z so its right is +x; AI faces +z so its right is -x
     return even ? right : -right;
@@ -169,16 +190,17 @@ class Rules {
   receiveCourtSign() { return -this.serveCourtSign(); }
   inKitchen(x, z) { const c = this.c.court; return Math.abs(z) - this.c.player.footRadius <= c.kitchen && Math.abs(x) <= c.width / 2 + this.c.player.footRadius; }
   gamePoint() { const s = this.score[this.server], r = this.score[1 - this.server], m = this.c.match; return s + 1 >= m.pointsToWin && s + 1 - r >= m.winBy; }
-  call() { return this.score[this.server] + ' - ' + this.score[1 - this.server]; }
-  onServe() { this.phase = 'rally'; this.lastHitter = this.server; this.hits = 1; this.bounces = 0; this.netTouched = false; this.watch = [false, false]; }
+  call() { return this.score[this.server] + ' - ' + this.score[1 - this.server] + (this.doubles ? ' - ' + this.serverNum : ''); }
+  onServe() { this.phase = 'rally'; this.lastHitter = this.serverId; this.hits = 1; this.bounces = 0; this.netTouched = false; this.watch = [false, false, false, false]; }
   // player p strikes the ball. kitchen = p is in / touching the kitchen. Returns a fault event or null.
   onHit(p, kitchen) {
-    if (this.phase !== 'rally' || p === this.lastHitter) return null;
+    if (this.phase !== 'rally' || (this.lastHitter >= 0 && Rules.teamOf(p) === Rules.teamOf(this.lastHitter))) return null;
     const volley = this.bounces === 0;
     if (volley && this.hits <= 2) return this.fault(p, 'FAULT', this.hits === 1 ? 'Two-bounce rule: let the serve bounce' : 'Two-bounce rule: let the return bounce');
     if (volley && kitchen) return this.fault(p, 'KITCHEN!', 'Kitchen volley: no volleys inside the kitchen line');
+    if (this.doubles && this.hits === 1 && p !== this.receiverId()) return this.fault(p, 'FAULT', 'Wrong receiver: the player diagonal to the server must return the serve');
     this.hits++; this.lastHitter = p; this.bounces = 0; this.netTouched = false;
-    this.watch[0] = this.watch[1] = false;
+    this.watch.fill(false);
     if (volley) this.watch[p] = true;
     return null;
   }
@@ -186,11 +208,11 @@ class Rules {
   onBounce(x, z) {
     if (this.phase !== 'rally') return null;
     const c = this.c.court, hw = c.width / 2, hl = c.length / 2;
-    this.bounces++; this.watch[0] = this.watch[1] = false;
+    this.bounces++; this.watch.fill(false);
     const side = Rules.sideOf(z);
     if (this.bounces === 1) {
       if (Math.abs(x) > hw || Math.abs(z) > hl) return this.fault(this.lastHitter, 'OUT', 'Out: the ball landed outside the court');
-      if (side === this.lastHitter) return this.netTouched ? this.fault(this.lastHitter, 'NET', 'Net: the ball hit the net')
+      if (side === Rules.teamOf(this.lastHitter)) return this.netTouched ? this.fault(this.lastHitter, 'NET', 'Net: the ball hit the net')
                                                            : this.fault(this.lastHitter, 'FAULT', 'Net: the ball did not clear the net');
       if (this.hits === 1) {
         if (Math.abs(z) <= c.kitchen) return this.fault(this.lastHitter, 'FAULT', 'Serve in kitchen: the serve must land past the kitchen');
@@ -198,20 +220,23 @@ class Rules {
       }
       return null;
     }
-    return this.fault(1 - this.lastHitter, 'FAULT', 'Double bounce: the ball bounced twice');
+    return this.fault(1 - Rules.teamOf(this.lastHitter), 'FAULT', 'Double bounce: the ball bounced twice', false);
   }
   // stepping into the kitchen after a volley, before the ball bounces
   momentum(p, kitchen) {
     if (this.phase === 'rally' && this.watch[p] && kitchen) return this.fault(p, 'KITCHEN!', 'Kitchen: do not step in after a volley');
     return null;
   }
-  fault(faulter, label, detail) {
+  fault(faulter, label, detail, exact = true) {
     this.phase = 'dead';
-    const m = this.c.match, s = this.server;
-    const ev = { label, detail, faulter, sideOut: false, scorer: -1, gameOver: false, matchOver: false, winner: -1 };
-    if (faulter === s) { ev.sideOut = true; this.server = 1 - s; }
-    else {
+    const m = this.c.match, s = this.server, ft = Rules.teamOf(faulter);
+    const ev = { label, detail, faulter, faulterTeam: ft, exact, sideOut: false, secondServer: false, scorer: -1, gameOver: false, matchOver: false, winner: -1 };
+    if (ft === s) {
+      if (this.doubles && this.serverNum === 1) { this.serverNum = 2; this._sid = this.partnerOf(this._sid); ev.secondServer = true; } // partner serves next
+      else { ev.sideOut = true; this.server = 1 - s; if (this.doubles) { this.serverNum = 1; this._sid = this.pos[this.server][0]; } } // right-court player is first server
+    } else {
       this.score[s]++; ev.scorer = s;
+      if (this.doubles) this.pos[s] = [this.pos[s][1], this.pos[s][0]]; // the serving team swaps courts after each point it wins
       const a = this.score[s], b = this.score[1 - s];
       if (a >= m.pointsToWin && a - b >= m.winBy) {
         ev.gameOver = true; ev.winner = s; this.gameWinner = s; this.games[s]++;
@@ -625,12 +650,12 @@ class Venue {
     g.fillStyle = '#17402a'; g.fillRect(0, 0, 512, 256); g.strokeStyle = '#e8ff5a'; g.lineWidth = 6; g.strokeRect(8, 8, 496, 240);
     g.fillStyle = '#fff'; g.textAlign = 'center'; g.font = 'italic bold 34px Georgia, serif'; g.fillText('Kitchen Rally', 256, 56);
     g.font = 'bold 26px Trebuchet MS, sans-serif';
-    g.fillStyle = '#ff7b6e'; g.fillText('YOU', 110, 112); g.fillStyle = '#7fb0ff'; g.fillText('CPU', 402, 112);
+    g.fillStyle = '#ff7b6e'; g.fillText(rules.doubles ? 'US' : 'YOU', 110, 112); g.fillStyle = '#7fb0ff'; g.fillText(rules.doubles ? 'THEM' : 'CPU', 402, 112);
     g.fillStyle = '#fff'; g.font = 'bold 92px Georgia, serif'; g.fillText(String(rules.score[0]), 110, 205); g.fillText(String(rules.score[1]), 402, 205);
     g.font = 'bold 40px Trebuchet MS, sans-serif'; g.fillText('-', 256, 190);
     g.font = 'bold 22px Trebuchet MS, sans-serif'; g.fillStyle = '#e8ff5a';
     g.fillText(rules.server === 0 ? '\u25CF' : '', 40, 205); g.fillText(rules.server === 1 ? '\u25CF' : '', 472, 205);
-    g.fillStyle = '#cfe8d8'; g.fillText('GAMES ' + rules.games[0] + ' - ' + rules.games[1], 256, 238);
+    g.fillStyle = '#cfe8d8'; g.fillText('GAMES ' + rules.games[0] + ' - ' + rules.games[1] + (rules.doubles ? '   SERVER ' + rules.serverNum : ''), 256, 238);
     o.tex.needsUpdate = true;
   }
   makeSpectators() {
@@ -748,7 +773,7 @@ function part(parent, w, h, d, color, x, y, z) { const m = new THREE.Mesh(BOX, m
 
 class Player {
   constructor(id, scene, look) {
-    this.id = id; this.sz = id === 0 ? 1 : -1; this.name = id === 0 ? 'YOU' : 'CPU';
+    this.id = id; this.sz = (id & 1) === 0 ? 1 : -1; this.name = id === 0 ? 'YOU' : id === 2 ? 'PARTNER' : 'CPU'; this.callT = 0; this.callTxt = '';
     this.x = 0; this.z = 0; this.vx = 0; this.vz = 0; this.cx = 0; this.cz = 0; this.maxSpeed = CONFIG.player.speed;
     this.swingT = -1; this.swingKind = 'fh'; this.hitCD = 0; this.celebrate = 0; this.runPhase = 0; this.turn = 0; this.t = Math.random() * 6;
     this.x0 = 0; this.xMin = -4.7; this.xMax = 4.7; this.zMin = 0.45; this.zMax = 8.4;
@@ -811,44 +836,94 @@ class Player {
 class AIController {
   constructor(game, p, diff) {
     this.g = game; this.p = p; this.setDiff(diff);
-    this.react = 0; this.replanT = 0; this.serveT = 1; this.mistake = false; this.letGo = false;
+    this.react = 0; this.replanT = 0; this.serveT = 1; this.mistake = false; this.letGo = false; this.planT = 0.5;
+    this.claimed = false; this.yielded = false; this.side = p.x >= 0 ? 1 : -1; this.isHuman = false;
     this.plan = { x: 0, z: 0 }; this.tmp = {};
   }
   setDiff(name) { this.d = CONFIG.ai[name]; this.p.maxSpeed = this.d.speed; }
-  onNewPoint() { this.mistake = Math.random() < this.d.kitchenFault; this.serveT = CONFIG.serve.aiDelay; this.react = 0; this.letGo = false; }
-  onOpponentHit() { this.react = this.d.reaction; this.replanT = 0; this.letGo = false; }
+  onNewPoint() { this.mistake = Math.random() < this.d.kitchenFault; this.serveT = CONFIG.serve.aiDelay; this.react = 0; this.letGo = false; this.claimed = false; this.yielded = false; this.side = this.p.x >= 0 ? 1 : -1; }
+  onOpponentHit() { this.react = this.d.reaction; this.replanT = 0; this.letGo = false; this.claimed = false; this.yielded = false; }
+  partner() { return this.g.partnerOf(this.p); }
   moveTo(tx, tz) {
     const p = this.p, dx = tx - p.x, dz = tz - p.z, m = Math.hypot(dx, dz);
-    if (m < 0.06) { p.cx = 0; p.cz = 0; return; }
-    const k = Math.min(1, m / 0.5) / m; p.cx = dx * k; p.cz = dz * k;
+    if (m < 0.06) { p.cx = 0; p.cz = 0; } else { const k = Math.min(1, m / 0.5) / m; p.cx = dx * k; p.cz = dz * k; }
+    this.separate();
+  }
+  // never walk into the partner (human or AI): push gently away when too close
+  separate() {
+    const p = this.p, q = this.partner(); if (!q) return;
+    const ddx = p.x - q.x, ddz = p.z - q.z, dd = Math.hypot(ddx, ddz), R = 1.15;
+    if (dd < R) { const k = (R - dd) / R * 1.6, n = dd || 1; p.cx += ddx / n * k; p.cz += ddz / n * k; if (!dd) p.cx += this.side * k; const m = Math.hypot(p.cx, p.cz); if (m > 1) { p.cx /= m; p.cz /= m; } }
+  }
+  // who takes this ball? nearest teammate to the intercept point; the human partner gets a bias so the AI never steals an obvious shot
+  isMine() {
+    const g = this.g, p = this.p, q = this.partner(), r = g.rules;
+    if (!q) return true;
+    if (r.hits === 1 && r.receiverId() !== p.id) return false; // only the correct receiver returns the serve
+    if (r.hits === 1 && r.receiverId() === p.id) return true;
+    const mine = Math.hypot(this.plan.x - p.x, this.plan.z - p.z), theirs = Math.hypot(this.plan.x - q.x, this.plan.z - q.z);
+    let bias = 0;
+    if (this.isHuman) bias = 0.9; // the human is the one assisted: favour the human when assisting
+    else if (!g.ctl[q.id]) { // partner is human
+      const reach = theirs <= CONFIG.player.speed * this.planT + CONFIG.player.reach;
+      // is the human actually going for it? (close already, or running toward the ball)
+      const toward = (q.vx * (this.plan.x - q.x) + q.vz * (this.plan.z - q.z)) / (theirs || 1);
+      const engaged = theirs <= CONFIG.player.reach * 1.2 || toward > 1.5;
+      if (reach && (engaged || this.planT > 0.55)) {
+        if (Math.abs(this.plan.x - q.x) < Math.abs(this.plan.x - p.x) + 0.3) return false; // the human's half of the court: leave it
+        bias = -1.2;
+      } else bias = 0.8; // human cannot reach it, or is not moving for it in time: the partner saves the point
+    }
+    const hold = this.claimed ? 0.45 : 0;
+    const wins = mine - bias < theirs + hold || (Math.abs(mine - theirs) < 0.05 && p.id < q.id);
+    return wins;
   }
   think(dt) {
     const g = this.g, p = this.p, r = g.rules, b = g.ball, C = CONFIG.court;
     if (g.state === 'serve') {
       const sp = g.startPos[p.id]; this.moveTo(sp.x, sp.z);
-      if (r.server === p.id && !g.serve.pending) { this.serveT -= dt; if (this.serveT <= 0) g.beginServe(p, false); }
+      if (r.serverId === p.id && !g.serve.pending) { this.serveT -= dt; if (this.serveT <= 0) g.beginServe(p, false); }
       return;
     }
     if (g.state !== 'rally') { p.cx = 0; p.cz = 0; return; }
-    const opp = g.players[1 - p.id];
+    const opp = g.oppFor(p);
     // just volleyed near the kitchen: back off so momentum cannot carry us into it
-    if (r.watch[p.id] && Math.abs(p.z) < C.kitchen + 0.75 && !this.mistake) { p.cx = 0; p.cz = p.sz; return; }
-    if (r.phase === 'rally' && r.lastHitter !== p.id) {
+    if (r.watch[p.id] && Math.abs(p.z) < C.kitchen + 0.75 && !this.mistake) { p.cx = 0; p.cz = p.sz; this.separate(); return; }
+    if (r.phase === 'rally' && Rules.teamOf(r.lastHitter) !== Rules.teamOf(p.id)) {
       if (this.react > 0) { this.react -= dt; this.drift(opp); return; }
       this.replanT -= dt; if (this.replanT <= 0) { this.replan(); this.replanT = 0.07; }
-      if (this.letGo) this.drift(opp); else this.moveTo(this.plan.x, this.plan.z);
-      if (!this.letGo && g.canHit(p) && this.wantsToHit()) g.strike(p, this.chooseSpec());
+      if (this.letGo) { this.drift(opp); return; }
+      const mine = this.isMine();
+      if (mine && !this.claimed) { this.claimed = true; if (p.id === 2) { p.callTxt = 'MINE'; p.callT = 0.9; } }
+      if (!mine) {
+        this.claimed = false;
+        const q = this.partner();
+        if (q && p.id === 2 && !g.ctl[q.id] && !this.yielded && Math.hypot(this.plan.x - p.x, this.plan.z - p.z) < 2.2 && r.hits > 1) { this.yielded = true; p.callTxt = 'YOURS'; p.callT = 0.9; }
+        this.drift(opp); return;
+      }
+      this.moveTo(this.plan.x, this.plan.z);
+      if (g.canHit(p) && this.wantsToHit()) g.strike(p, this.chooseSpec());
     } else this.drift(opp);
   }
-  // ready posture: back until the third shot, then up to the kitchen line
+  // ready posture: back until the third shot, then up to the kitchen line. Doubles: split the court, stay level with the partner
   drift(opp) {
-    const r = this.g.rules, p = this.p, advance = r.hits >= 3 || (r.hits >= 2 && r.server !== p.id);
-    const z = p.sz * (advance ? CONFIG.court.kitchen + 0.45 : CONFIG.court.length / 2 - 0.9);
-    this.moveTo(clamp(opp.x * 0.45, -1.5, 1.5), z);
+    const g = this.g, r = g.rules, p = this.p, q = this.partner(), C = CONFIG.court, myTeam = Rules.teamOf(p.id);
+    let advance = r.hits >= 3 || (r.hits >= 2 && r.server !== myTeam);
+    if (q) {
+      if (r.hits <= 1 && r.server !== myTeam && r.receiverId() !== p.id) advance = true; // receiver's partner starts at the kitchen line
+      if (r.hits >= 2 && Math.abs(q.z) < C.kitchen + 1.5) advance = true; // move up together with the partner
+      if (r.hits >= 2 && Math.abs(q.z) > C.length / 2 - 1.6 && r.server === myTeam && r.hits < 3) advance = false;
+    }
+    const z = p.sz * (advance ? C.kitchen + 0.45 : C.length / 2 - 0.9);
+    if (!q) { this.moveTo(clamp(opp.x * 0.45, -1.5, 1.5), z); return; }
+    if (q.x > 0.35) this.side = -1; else if (q.x < -0.35) this.side = 1;
+    const bx = g.ball.x;
+    this.moveTo(clamp(this.side * 1.7 + 0.15 * (bx - this.side * 1.7), -2.7, 2.7), z);
   }
   wantsToHit() {
     const r = this.g.rules, b = this.g.ball, p = this.p, volley = r.bounces === 0;
     if (b.y < 0.2 || b.y > 1.65) return false;
+    if (r.hits === 1 && r.doubles && r.receiverId() !== p.id) return false;
     if (volley) {
       if (r.hits <= 2) return false;
       if ((r.inKitchen(p.x, p.z) || Math.abs(p.z) < CONFIG.court.kitchen + CONFIG.player.footRadius + 0.2) && !this.mistake) return false;
@@ -860,9 +935,9 @@ class AIController {
     simFlight(CONFIG, b.x, b.y, b.z, b.vx, b.vy, b.vz, tmp);
     this.letGo = false;
     if (r.bounces === 0 && (Math.abs(tmp.lx) > C.width / 2 + 0.12 || Math.abs(tmp.lz) > C.length / 2 + 0.12) && tmp.lz * p.sz > 0) { this.letGo = true; return; }
-    let x = b.x, y = b.y, z = b.z, vx = b.vx, vy = b.vy, vz = b.vz, bn = 0, chosen = false;
+    let x = b.x, y = b.y, z = b.z, vx = b.vx, vy = b.vy, vz = b.vz, bn = 0;
     const dt = P.step;
-    this.plan.x = clamp(tmp.lx, -4.4, 4.4); this.plan.z = clamp(tmp.lz, p.sz > 0 ? 0.6 : -8.3, p.sz > 0 ? 8.3 : -0.6);
+    this.plan.x = clamp(tmp.lx, -4.4, 4.4); this.plan.z = clamp(tmp.lz, p.sz > 0 ? 0.6 : -8.3, p.sz > 0 ? 8.3 : -0.6); this.planT = tmp.t;
     for (let i = 0; i < 300; i++) {
       vy -= P.gravity * dt; const f = Math.max(0, 1 - P.drag * Math.sqrt(vx * vx + vy * vy + vz * vz) * dt); vx *= f; vy *= f; vz *= f;
       x += vx * dt; y += vy * dt; z += vz * dt;
@@ -875,11 +950,11 @@ class AIController {
       const volley = total === 0;
       if (volley && (Math.abs(z) > 4.6 || ((r.inKitchen(x, z) || Math.abs(z) < C.kitchen + CONFIG.player.footRadius + 0.2) && !this.mistake))) continue;
       if (Math.hypot(x - p.x, z - p.z) > this.d.speed * Math.max(0, t - this.react) + CONFIG.player.reach * 0.7) continue;
-      this.plan.x = clamp(x, -4.4, 4.4); this.plan.z = clamp(z, p.sz > 0 ? 0.6 : -8.3, p.sz > 0 ? 8.3 : -0.6); chosen = true; break;
+      this.plan.x = clamp(x, -4.4, 4.4); this.plan.z = clamp(z, p.sz > 0 ? 0.6 : -8.3, p.sz > 0 ? 8.3 : -0.6); this.planT = t; break;
     }
   }
   chooseSpec() {
-    const g = this.g, p = this.p, d = this.d, opp = g.players[1 - p.id], b = g.ball;
+    const g = this.g, p = this.p, d = this.d, opp = g.oppFor(p), b = g.ball;
     const oppZ = Math.abs(opp.z), myZ = Math.abs(p.z), r = Math.random(), away = opp.x >= 0 ? -1 : 1;
     let type = 'drive';
     if (oppZ < 3.6) { if (r < d.lobP * (myZ > 3 ? 1.5 : 1)) type = 'lob'; else if (myZ < 4.6 && r < d.lobP + d.dinkP) type = 'dink'; }
@@ -898,14 +973,16 @@ class AIController {
   }
 }
 
-// ---------------------------------------------------------------- HUD
 class HUD {
   constructor() {
     this.sYou = $('sYou'); this.sCpu = $('sCpu'); this.callTxt = $('callTxt'); this.games = $('games'); this.sideYou = $('sideYou'); this.sideCpu = $('sideCpu');
+    this.callSub = $('callSub'); this.nmYou = $('nmYou'); this.nmCpu = $('nmCpu');
     this.co = $('callout'); this.coBig = $('coBig'); this.coSub = $('coSub');
   }
   update(r) {
     this.sYou.textContent = r.score[0]; this.sCpu.textContent = r.score[1]; this.callTxt.textContent = r.call();
+    this.nmYou.textContent = r.doubles ? 'US' : 'YOU'; this.nmCpu.textContent = r.doubles ? 'THEM' : 'CPU';
+    this.callSub.textContent = r.doubles ? 'serving - receiving - server no.' : 'server - receiver';
     this.games.textContent = 'GAME ' + (r.gameIndex + 1) + ' \u00B7 GAMES ' + r.games[0] + '-' + r.games[1];
     this.sideYou.classList.toggle('serving', r.server === 0); this.sideCpu.classList.toggle('serving', r.server === 1);
   }
@@ -931,10 +1008,14 @@ class Game {
     this.scene.add(sun);
     this.rig = new CameraRig(); this.venue = new Venue(this.scene);
     this.rules = new Rules(CONFIG); this.audio = new AudioFX(); this.hud = new HUD(); this.input = new Input();
-    this.players = [
+    // 4 distinct shirts: you red, partner orange, opponents blue and teal (ids 2 and 3 only appear in doubles)
+    this.pool = [
       new Player(0, this.scene, { shirt: 0xd94a3d, shorts: 0x2b2f3a, skin: 0xf0c6a0, hair: 0x4a2f1e, paddle: 0x2a2a2a }),
-      new Player(1, this.scene, { shirt: 0x3e8ce6, shorts: 0xf1f1f1, skin: 0xc98d62, hair: 0x20150e, paddle: 0x1f5a3a })
+      new Player(1, this.scene, { shirt: 0x3e8ce6, shorts: 0xf1f1f1, skin: 0xc98d62, hair: 0x20150e, paddle: 0x1f5a3a }),
+      new Player(2, this.scene, { shirt: 0xf2922b, shorts: 0x3a3f4b, skin: 0xe0b48a, hair: 0x2b1d12, paddle: 0x2a2a2a }),
+      new Player(3, this.scene, { shirt: 0x1fb5a5, shorts: 0xf1f1f1, skin: 0x8d5a3b, hair: 0x120c08, paddle: 0x1f5a3a })
     ];
+    this.players = this.pool.slice(0, 2);
     this.ball = new Ball(CONFIG);
     const bm = new THREE.Mesh(new THREE.IcosahedronGeometry(0.15, 1), new THREE.MeshLambertMaterial({ color: 0xc9f03a, flatShading: true }));
     bm.castShadow = true; this.ballMesh = bm; this.scene.add(bm);
@@ -954,11 +1035,11 @@ class Game {
 
     this.diff = 'normal'; this.state = 'title'; this.prev = 'serve'; this.time = 0; this.stateT = 0; this.acc = 0; this.cheerT = 0; this.cheerAt = -1;
     this.buf = { t: 0, age: 0, kind: 'hit', swung: false, fresh: false, warned: false }; this.serve = { pending: false, t: 0, soft: false };
-    this.callouts = []; this.pending = null; this.startPos = [{ x: 0, z: 0 }, { x: 0, z: 0 }];
+    this.callouts = []; this.pending = null; this.startPos = [{ x: 0, z: 0 }, { x: 0, z: 0 }, { x: 0, z: 0 }, { x: 0, z: 0 }]; this._opp = { x: 0, z: 0 };
     this.tw = [0, 0]; this.sol = {}; this.tmpSim = {}; this.tmpSol = {};
     this.ctl = [null, new AIController(this, this.players[1], this.diff)];
     this.assist = true; // auto-move assist for the human (toggle: T)
-    this.assistCtl = new AIController(this, this.players[0], 'normal'); this.players[0].maxSpeed = CONFIG.player.speed;
+    this.assistCtl = new AIController(this, this.players[0], 'normal'); this.assistCtl.isHuman = true; this.youEl = $('youTag'); this.callEl = $('callP'); this.players[0].maxSpeed = CONFIG.player.speed;
     this.assistCtl.d = Object.assign({}, CONFIG.ai.normal, { speed: CONFIG.player.speed }); this.assistCtl.react = 0;
     this.seen = false; try { this.seen = localStorage.getItem('kr_seen') === '1'; } catch (e) { /* ignore */ }
     this.input.onAction = (n) => this.onAction(n);
@@ -970,7 +1051,8 @@ class Game {
     canvas.addEventListener('touchstart', (e) => { if (e.touches.length === 2) pinch = pd(e.touches); }, { passive: true });
     canvas.addEventListener('touchmove', (e) => { if (e.touches.length === 2 && pinch > 0) { const d = pd(e.touches); this.rig.setUserZoom(this.rig.userZoom * pinch / d); pinch = d; e.preventDefault(); } }, { passive: false });
     canvas.addEventListener('touchend', () => { pinch = 0; });
-    this.layout(); this.hud.update(this.rules); this.venue.updateBoard(this.rules); this.hud.screen('scrTitle');
+    this.mode = 'doubles'; this.setMode('doubles');
+    this.hud.screen('scrTitle');
     if (matchMedia('(pointer:coarse)').matches || 'ontouchstart' in window || /[?&]touch=1/.test(location.search)) document.body.classList.add('touch');
   }
   resize() {
@@ -978,6 +1060,7 @@ class Game {
   }
   bindUI() {
     for (const b of document.querySelectorAll('#diffs .btn')) b.addEventListener('click', (e) => { e.stopPropagation(); this.setDiff(b.dataset.d); });
+    for (const b of document.querySelectorAll('#modes .btn')) b.addEventListener('click', (e) => { e.stopPropagation(); this.setMode(b.dataset.m); });
     $('scrTitle').addEventListener('click', () => this.onAction('enter'));
     $('scrHow').addEventListener('click', () => this.onAction('enter'));
     $('btnResume').addEventListener('click', (e) => { e.stopPropagation(); this.onAction('enter'); });
@@ -989,8 +1072,34 @@ class Game {
     $('btnPause').addEventListener('click', () => this.onAction('pause'));
   }
   setHelper(on) { this.helper = on; $('btnHelper').textContent = on ? 'RULE HELPER ON' : 'RULE HELPER OFF'; }
+  // singles (ids 0,1) or doubles (human + AI partner vs two AI)
+  setMode(m) {
+    const d = m === 'doubles'; this.mode = m;
+    if (!this.rules) this.rules = new Rules(CONFIG, d); this.rules.doubles = d; this.rules.resetMatch(); this.players = this.pool.slice(0, d ? 4 : 2);
+    for (const p of this.pool) p.group.visible = this.players.includes(p);
+    const auto = !!this.ctl[0];
+    this.ctl = [auto ? new AIController(this, this.players[0], 'hard') : null];
+    for (let i = 1; i < this.players.length; i++) this.ctl.push(new AIController(this, this.players[i], this.diff));
+    for (const c of this.ctl) if (c) c.setDiff(c.p.id === 0 ? 'hard' : this.diff);
+    for (const b of document.querySelectorAll('#modes .btn')) b.classList.toggle('sel', b.dataset.m === m);
+    $('titleLead').textContent = (d ? 'Doubles' : 'Singles') + ' \u00B7 First to 11 \u00B7 Best of 3';
+    if (this.state === 'end') this.setState('title');
+    if (this.state === 'title') this.rules.resetMatch();
+    this.layout(); for (const c of this.ctl) if (c) c.onNewPoint(); this.hud.update(this.rules); this.venue.updateBoard(this.rules);
+    this.audio.sfx('blip');
+  }
+  partnerOf(p) { return this.rules.doubles ? this.players[p.id ^ 2] : null; }
+  // the opposing side as one target: singles = the opponent, doubles = mean x and the player nearest the net
+  oppFor(p) {
+    if (!this.rules.doubles) return this.players[1 - p.id];
+    const t = 1 - (p.id & 1), a = this.players[t], b = this.players[t + 2], o = this._opp;
+    o.x = (a.x + b.x) / 2; o.z = Math.abs(a.z) < Math.abs(b.z) ? a.z : b.z; return o;
+  }
+  notifyOpp(p) { for (const c of this.ctl) if (c && (c.p.id & 1) !== (p.id & 1)) c.onOpponentHit(); }
+  teamName(t) { return this.rules.doubles ? (t === 0 ? 'YOUR TEAM' : 'CPU TEAM') : (t === 0 ? 'YOU' : 'CPU'); }
+  serverName() { const i = this.rules.serverId; return !this.rules.doubles ? (i === 0 ? 'YOU' : 'CPU') : i === 0 ? 'YOU' : i === 2 ? 'PARTNER' : 'CPU'; }
   setDiff(d) {
-    this.diff = d; this.setHelper(d !== 'hard'); this.ctl[1].setDiff(d); if (this.ctl[0]) this.ctl[0].setDiff('hard');
+    this.diff = d; this.setHelper(d !== 'hard'); for (const c of this.ctl) if (c) c.setDiff(c.p.id === 0 ? 'hard' : d);
     for (const b of document.querySelectorAll('#diffs .btn')) b.classList.toggle('sel', b.dataset.d === d);
     this.audio.sfx('blip');
   }
@@ -1007,6 +1116,7 @@ class Game {
       case 'mute': this.audio.setMuted(!this.audio.muted); $('btnMute').textContent = this.audio.muted ? 'SOUND OFF' : 'SOUND ON'; this.audio.sfx('blip'); break;
       case 'helper': this.setHelper(!this.helper); this.audio.sfx('blip'); break;
       case 'assist': this.assist = !this.assist; $('btnAssist').textContent = this.assist ? 'ASSIST ON' : 'ASSIST OFF'; this.audio.sfx('blip'); break;
+      case 'dir': if (S === 'title') this.setMode(this.mode === 'doubles' ? 'singles' : 'doubles'); break;
       case 'left': case 'right':
         if (S === 'title') { const L = ['easy', 'normal', 'hard'], i = L.indexOf(this.diff); this.setDiff(L[clamp(i + (n === 'left' ? -1 : 1), 0, 2)]); }
         break;
@@ -1021,7 +1131,7 @@ class Game {
       case 'hit': case 'soft':
         if (S === 'title' || S === 'howto' || S === 'end') { this.onAction('enter'); break; }
         if (S === 'paused' || this.ctl[0]) break;
-        if (S === 'serve') { if (this.rules.server === 0 && !this.serve.pending) this.beginServe(this.players[0], n === 'soft'); }
+        if (S === 'serve') { if (this.rules.serverId === 0 && !this.serve.pending) this.beginServe(this.players[0], n === 'soft'); }
         else if (S === 'rally') { this.buf.t = CONFIG.input.bufferMs / 1000; this.buf.age = 0; this.buf.kind = n; this.buf.swung = false; this.buf.warned = false; this.buf.fresh = this.canHit(this.players[0]); }
         break;
     }
@@ -1031,11 +1141,16 @@ class Game {
   }
   // ------------------------------------------------ point flow
   layout() {
-    const r = this.rules, hl = CONFIG.court.length / 2, P = CONFIG.player;
-    const sv = this.players[r.server], rc = this.players[1 - r.server];
-    this.startPos[sv.id].x = r.serveCourtSign() * P.serveDepth; this.startPos[sv.id].z = sv.sz * (hl + P.serveZ);
-    this.startPos[rc.id].x = r.receiveCourtSign() * P.serveDepth; this.startPos[rc.id].z = rc.sz * (hl + 0.25);
-    for (const p of this.players) { p.place(this.startPos[p.id].x, this.startPos[p.id].z); }
+    const r = this.rules, hl = CONFIG.court.length / 2, K = CONFIG.court.kitchen, P = CONFIG.player;
+    const sv = this.players[r.serverId], rc = this.players[r.receiverId()], sp = this.startPos;
+    sp[sv.id].x = r.serveCourtSign() * P.serveDepth; sp[sv.id].z = sv.sz * (hl + P.serveZ);
+    sp[rc.id].x = r.receiveCourtSign() * P.serveDepth; sp[rc.id].z = rc.sz * (hl + 0.25);
+    if (r.doubles) { // the server's partner waits at the baseline in the other court, the receiver's partner at the kitchen line
+      const a = this.players[r.partnerOf(sv.id)], b = this.players[r.partnerOf(rc.id)];
+      sp[a.id].x = -r.serveCourtSign() * 1.7; sp[a.id].z = a.sz * (hl - 0.35);
+      sp[b.id].x = -r.receiveCourtSign() * 1.7; sp[b.id].z = b.sz * (K + 0.55);
+    }
+    for (const p of this.players) { p.place(sp[p.id].x, sp[p.id].z); p.callT = 0; }
     this.ball.live = false; this.ring.visible = false; this.holdBall();
   }
   resetServe() {
@@ -1043,10 +1158,10 @@ class Game {
     this.layout(); this.acc = 0;
     for (const c of this.ctl) if (c) c.onNewPoint();
     this.hud.update(this.rules); this.venue.updateBoard(this.rules);
-    if (this.rules.gamePoint()) this.queueCallout('GAME POINT', (this.rules.server === 0 ? 'YOU' : 'CPU') + ' can win the game', 0.35);
+    if (this.rules.gamePoint()) this.queueCallout('GAME POINT', this.teamName(this.rules.server) + ' can win the game', 0.35);
   }
   holdBall() {
-    const sv = this.players[this.rules.server], b = this.ball;
+    const sv = this.players[this.rules.serverId], b = this.ball;
     b.x = sv.x; b.z = sv.z - sv.sz * 0.45; b.y = CONFIG.shot.serveHeight; b.vx = b.vy = b.vz = 0;
   }
   queueCallout(text, sub, delay) { this.callouts.push({ text, sub, t: delay }); }
@@ -1056,7 +1171,7 @@ class Game {
     this.serve.pending = true; this.serve.t = CONFIG.serve.release; this.serve.soft = soft; p.startSwing('serve', 0);
   }
   releaseServe() {
-    const r = this.rules, p = this.players[r.server], b = this.ball;
+    const r = this.rules, p = this.players[r.serverId], b = this.ball;
     this.serve.pending = false; this.holdBall();
     let spec;
     if (this.ctl[p.id]) spec = this.ctl[p.id].serveSpec();
@@ -1067,7 +1182,7 @@ class Game {
     r.onServe(); b.live = true; this.shoot(p, spec, spec.sd0 * 0.7);
     this.setState('rally'); this.acc = 0;
     this.audio.sfx('pock');
-    const o = this.ctl[1 - p.id]; if (o) o.onOpponentHit();
+    this.notifyOpp(p);
   }
   // human serve aim: safely past the kitchen by default (centre of the service box), direction keys nudge it
   humanServeSpec(soft = this.serve.soft) {
@@ -1076,16 +1191,16 @@ class Game {
   }
   canHit(p) {
     const b = this.ball, P = CONFIG.player;
-    return this.rules.phase === 'rally' && b.live && this.rules.lastHitter !== p.id && p.hitCD <= 0 && b.z * p.sz > 0 &&
+    return this.rules.phase === 'rally' && b.live && (this.rules.lastHitter < 0 || (this.rules.lastHitter & 1) !== (p.id & 1)) && p.hitCD <= 0 && b.z * p.sz > 0 &&
       b.y >= P.minHitY && b.y <= P.maxHitY && Math.hypot(b.x - p.x, b.z - p.z) <= P.reach;
   }
-  humanLegal(p) { const r = this.rules, v = r.bounces === 0; return !(v && r.hits <= 2) && !(v && r.inKitchen(p.x, p.z)); }
+  humanLegal(p) { const r = this.rules, v = r.bounces === 0; return !(v && r.hits <= 2) && !(v && r.inKitchen(p.x, p.z)) && !(r.doubles && r.hits === 1 && r.receiverId() !== p.id); }
   // subtle auto-move assist: blend a nudge toward the predicted intercept into the human's own input
   applyAssist(dt, p) {
     const r = this.rules, a = this.assistCtl;
-    if (!this.assist || r.phase !== 'rally' || r.lastHitter === 0) return;
+    if (!this.assist || r.phase !== 'rally' || (r.lastHitter & 1) === 0) return;
     a.replanT -= dt; if (a.replanT <= 0) { a.replan(); a.replanT = CONFIG.player.assistPlanEvery; }
-    if (a.letGo) return;
+    if (a.letGo || (r.doubles && !a.isMine())) return; // doubles: do not drag the human onto a ball the partner is taking
     const dx = a.plan.x - p.x, dz = a.plan.z - p.z, m = Math.hypot(dx, dz);
     if (m < 0.08) return;
     const k = Math.min(1, m / 0.5) / m, w = CONFIG.player.assistBlend;
@@ -1129,27 +1244,32 @@ class Game {
     const ev = this.rules.onHit(p.id, this.rules.inKitchen(p.x, p.z));
     this.shoot(p, spec, spec.sd0 * (0.6 + 0.8 * stretch));
     this.audio.sfx('pock');
-    const o = this.ctl[1 - p.id]; if (o) o.onOpponentHit();
+    this.notifyOpp(p);
     if (ev) this.handleFault(ev);
+  }
+  faultName(ev) {
+    if (!this.rules.doubles) return ev.faulter === 0 ? 'You' : 'CPU';
+    if (ev.exact) return ev.faulter === 0 ? 'You' : ev.faulter === 2 ? 'Partner' : 'CPU';
+    return ev.faulterTeam === 0 ? 'Your team' : 'CPU team';
   }
   handleFault(ev) {
     this.ring.visible = false; this.audio.sfx('fault');
     this.callouts.length = 0;
-    this.queueCallout(ev.label, (ev.faulter === 0 ? 'You: ' : 'CPU: ') + ev.detail, 0);
+    this.queueCallout(ev.label, this.faultName(ev) + ': ' + ev.detail, 0);
     let d = 1.15;
-    const nm = (i) => (i === 0 ? 'YOU' : 'CPU');
-    if (ev.sideOut) { this.queueCallout('SIDE OUT', nm(this.rules.server) + ' to serve', d); d += 1.0; }
-    if (ev.scorer >= 0) { this.players[ev.scorer].celebrate = 1.8; this.cheerT = 2.2; this.cheerAt = 0.5; }
-    if (ev.gameOver) { this.queueCallout('GAME', nm(ev.winner) + ' win ' + this.rules.score[ev.winner] + '-' + this.rules.score[1 - ev.winner], d); d += 1.2; }
-    if (ev.matchOver) this.queueCallout('MATCH', nm(ev.winner) + ' win the match ' + this.rules.games[0] + '-' + this.rules.games[1], d);
+    if (ev.sideOut) { this.queueCallout('SIDE OUT', this.teamName(this.rules.server) + ' to serve', d); d += 1.0; }
+    else if (ev.secondServer) { this.queueCallout('SECOND SERVER', this.serverName() + ' to serve', d); d += 1.0; }
+    if (ev.scorer >= 0) { for (const p of this.players) if ((p.id & 1) === ev.scorer) p.celebrate = 1.8; this.cheerT = 2.2; this.cheerAt = 0.5; }
+    if (ev.gameOver) { this.queueCallout('GAME', this.teamName(ev.winner) + ' win ' + this.rules.score[ev.winner] + '-' + this.rules.score[1 - ev.winner], d); d += 1.2; }
+    if (ev.matchOver) this.queueCallout('MATCH', this.teamName(ev.winner) + ' win the match ' + this.rules.games[0] + '-' + this.rules.games[1], d);
     this.pending = ev; this.setState('pointover');
     this.hud.update(this.rules); this.venue.updateBoard(this.rules);
   }
   afterPoint() {
     const ev = this.pending; this.pending = null;
     if (ev && ev.matchOver) {
-      const w = ev.winner; $('endTitle').textContent = w === 0 ? 'You win the match!' : 'CPU wins the match';
-      $('endSub').textContent = 'Games ' + this.rules.games[0] + ' - ' + this.rules.games[1] + ' \u00B7 difficulty ' + this.diff.toUpperCase();
+      const w = ev.winner; $('endTitle').textContent = this.rules.doubles ? (w === 0 ? 'Your team wins the match!' : 'CPU team wins the match') : (w === 0 ? 'You win the match!' : 'CPU wins the match');
+      $('endSub').textContent = 'Games ' + this.rules.games[0] + ' - ' + this.rules.games[1] + ' \u00B7 ' + this.mode + ' \u00B7 difficulty ' + this.diff.toUpperCase();
       this.setState('end'); return;
     }
     if (ev && ev.gameOver) this.rules.nextGame(); else this.rules.newPoint();
@@ -1162,7 +1282,7 @@ class Game {
     if (p.sz > 0) { p.zMin = P.netGap; p.zMax = P.boundZ; } else { p.zMin = -P.boundZ; p.zMax = -P.netGap; }
     // right after a volley near the kitchen, do not let momentum or assist carry the player into it (auto volleys and rule helper)
     if (p.id === 0 && !this.ctl[0] && r.phase === 'rally' && r.watch[0] && (this.helper || this.strikeSrc !== 'fresh')) p.zMin = Math.max(p.zMin, CONFIG.court.kitchen + P.footRadius + 0.03);
-    if (this.state === 'serve' && r.server === p.id) {
+    if (this.state === 'serve' && r.serverId === p.id) {
       const s = r.serveCourtSign(); // stay inside the serving court, behind the baseline
       if (s > 0) { p.xMin = 0.2; p.xMax = 3.0; } else { p.xMin = -3.0; p.xMax = -0.2; }
       if (p.sz > 0) { p.zMin = hl + 0.15; p.zMax = hl + 1.8; } else { p.zMin = -(hl + 1.8); p.zMax = -(hl + 0.15); }
@@ -1171,7 +1291,7 @@ class Game {
   update(dt) {
     this.time += dt;
     const S0 = this.state, cm = (S0 === 'title' || S0 === 'howto') ? 'title' : S0 === 'end' ? 'end' : 'play';
-    { const b = this.ball, p0 = this.players[0], p1 = this.players[1]; this.rig.setFocus(0.5 * b.x + 0.25 * p0.x + 0.25 * p1.x); }
+    { let mx = 0; for (const p of this.players) mx += p.x; this.rig.setFocus(0.5 * this.ball.x + 0.5 * mx / this.players.length); }
     this.rig.update(dt, cm);
     this.venue.updateSpectators(this.time, this.cheerT);
     if (this.cheerT > 0) this.cheerT -= dt;
@@ -1188,7 +1308,8 @@ class Game {
     else if (S === 'serve' || S === 'rally') { this.input.world(this.tw); h.cx = this.tw[0]; h.cz = this.tw[1]; }
     else { h.cx = 0; h.cz = 0; }
     if (!this.ctl[0] && S === 'rally') this.applyAssist(dt, h);
-    if (this.ctl[1]) this.ctl[1].think(dt);
+    for (let i = 1; i < this.ctl.length; i++) if (this.ctl[i]) this.ctl[i].think(dt);
+    for (const p of this.players) if (p.callT > 0) p.callT -= dt;
     if (S === 'pointover') for (const p of this.players) { p.cx = 0; p.cz = 0; }
     for (const p of this.players) { this.applyBounds(p); p.update(dt, false); }
     if (this.state === 'serve') {
@@ -1239,7 +1360,7 @@ class Game {
   syncCues(dt) {
     const r = this.rules, h = this.players[0], b = this.ball, C = CONFIG.court, S = this.state, human = !this.ctl[0];
     const rally = S === 'rally' && r.phase === 'rally' && human;
-    const incoming = rally && r.lastHitter === 1;
+    const incoming = rally && (r.lastHitter & 1) === 1;
     const needB = incoming && r.bounces === 0 && r.hits <= 2;
     const inK = r.inKitchen(h.x, h.z);
     const kcue = rally && r.bounces === 0 && ((incoming && inK) || (r.watch[0] && h.z < C.kitchen + CONFIG.player.footRadius + 0.45));
@@ -1247,7 +1368,7 @@ class Game {
     if (needB) { const k = 1 + 0.15 * Math.sin(this.time * 10); this.bounceRing.position.set(b.x, 0.04, b.z); this.bounceRing.scale.set(k, 1, k); }
     this.kitchenHi.visible = kcue; if (kcue) this.kitchenHi.material.opacity = 0.3 + 0.15 * Math.sin(this.time * 9);
     // serve target: highlight the service box and show the aim point while the human serves
-    const sv = S === 'serve' && r.server === 0 && human;
+    const sv = S === 'serve' && r.serverId === 0 && human;
     this.serveHi.visible = sv;
     if (sv) {
       const s = r.receiveCourtSign(), sp = this.humanServeSpec(this.serve.soft || this.input.held.soft);
@@ -1255,6 +1376,11 @@ class Game {
       this.serveHi.material.opacity = 0.4 + 0.12 * Math.sin(this.time * 6);
       if (!this.serve.pending) { this.ring.position.set(sp.tx, 0.035, -sp.tz); this.ring.visible = true; }
     }
+    // name arrow over the human and the partner's MINE / YOURS call
+    { const show = human && (S === 'serve' || S === 'rally' || S === 'pointover'), y = this.youEl;
+      if (show) { this.pv.set(h.x, 2.7, h.z).project(this.rig.cam); y.style.display = 'block'; y.style.left = Math.round((this.pv.x * 0.5 + 0.5) * innerWidth) + 'px'; y.style.top = Math.round((-this.pv.y * 0.5 + 0.5) * innerHeight) + 'px'; } else y.style.display = 'none';
+      const pc = this.players[2], ce = this.callEl;
+      if (pc && pc.callT > 0 && show) { this.pv.set(pc.x, 2.7, pc.z).project(this.rig.cam); ce.style.display = 'block'; ce.textContent = pc.callTxt; ce.style.left = Math.round((this.pv.x * 0.5 + 0.5) * innerWidth) + 'px'; ce.style.top = Math.round((-this.pv.y * 0.5 + 0.5) * innerHeight) + 'px'; } else ce.style.display = 'none'; }
     const el = this.cueEl; let txt = '', tgt = null;
     if (needB) { txt = 'LET IT BOUNCE'; this.pv.set(b.x, b.y + 0.5, b.z); tgt = this.pv; }
     else if (kcue) { txt = 'NO VOLLEY IN THE KITCHEN'; this.pv.set(h.x, 2.5, h.z); tgt = this.pv; }

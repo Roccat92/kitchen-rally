@@ -1,6 +1,6 @@
 # Kitchen Rally
 
-Game pickleball 1v1 (đánh đơn) chạy ngay trên trình duyệt, dựng 3D low-poly. Màn hình chính và màn kết thúc hiện góc isometric như một mô hình đảo nổi: sân xanh dương, nhà câu lạc bộ mái đỏ, khán đài có mái che, hàng thông, hàng rào và bảng điểm điện tử.
+Game pickleball chạy ngay trên trình duyệt, có hai chế độ: **Doubles 2v2** (mặc định: bạn cùng một đồng đội AI đấu với hai AI) và **Singles 1v1** (đánh đơn), dựng 3D low-poly. Màn hình chính và màn kết thúc hiện góc isometric như một mô hình đảo nổi: sân xanh dương, nhà câu lạc bộ mái đỏ, khán đài có mái che, hàng thông, hàng rào và bảng điểm điện tử.
 
 Toàn bộ game nằm trong **một file `index.html`** (HTML + CSS + JS), dùng Three.js r160 nạp từ CDN unpkg. Không cần build, không cần asset ngoài.
 
@@ -28,6 +28,7 @@ Khi đang chơi, camera đặt sau vạch cuối sân của bạn, nhìn dọc s
 | T | Bật tắt hỗ trợ di chuyển (Assist, mặc định BẬT). Cũng bấm được nút ASSIST trên HUD |
 | R | Bật tắt Rule Helper (mặc định BẬT ở Easy và Normal, TẮT ở Hard). Cũng bấm được nút trên HUD |
 | Con lăn chuột / chụm hai ngón | Phóng to thu nhỏ camera trong giới hạn |
+| Mũi tên Lên / Xuống (ở màn hình chính) | Chọn chế độ Doubles hoặc Singles (cũng bấm được nút trên màn hình). Trái / Phải: độ khó |
 | Enter | Bắt đầu / tạm dừng / tiếp tục |
 | M | Bật tắt âm thanh |
 | Q | Thoát về màn hình chính (khi đang tạm dừng) |
@@ -54,7 +55,16 @@ Trên điện thoại: cần joystick bên trái, hai nút HIT và SOFT bên ph�
 - **Giao bóng an toàn:** mặc định giao vào giữa ô giao bóng, đủ sâu qua bếp. Ô giao bóng được tô vàng và có vòng ngắm; giữ hướng để dịch điểm ngắm (trái/phải, lên = sâu hơn).
 - Auto-aim luôn giữ điểm ngắm trong vạch biên, nên cú đánh của bạn không tự bay ra ngoài.
 
-## Luật tóm tắt (đánh đơn)
+## Chế độ đôi (Doubles 2v2)
+
+- **Đội hình:** bạn (áo đỏ, có mũi tên YOU nổi trên đầu) và đồng đội AI (áo cam) ở phía dưới, hai AI (áo xanh dương và xanh ngọc) ở phía trên. Camera vẫn đặt sau vạch cuối sân và khung hình trọn cả sân.
+- **Luật đôi thật:** tính điểm side-out với tỉ số ba số "điểm đội giao - điểm đội nhận - người giao số 1 hoặc 2". Game bắt đầu ở 0-0-2 (người giao đầu tiên chỉ có một lượt giao). Mỗi đội có hai người giao trước khi mất quyền giao (side out), sau side out người đứng ô phải giao đầu tiên.
+- **Vị trí giao và nhận:** đội giao thắng điểm thì hai người đổi ô. Người giao đứng ở ô phải hoặc trái theo vị trí hiện tại, quả giao phải vào ô chéo, và **đúng người nhận** (người đứng ô chéo) phải trả quả giao. Người nhận sai là lỗi. Luật hai nảy và luật bếp áp dụng cho cả bốn người, đồng đội không được đánh liền sau cú đánh của người cùng đội.
+- **Đồng đội AI:** tự chia sân trái/phải với bạn, giữ khoảng cách để không đụng vào bạn, tiến lên vạch bếp cùng bạn và gọi "MINE" khi nhận bóng. Nếu bóng ở nửa sân của bạn hoặc bạn gần bóng hơn thì AI nhường ("YOURS"), không giành bóng của bạn. Assist chỉ kéo bạn tới những quả bóng mà đồng đội không lấy. Cặp AI đối thủ phối hợp theo cùng cách.
+- **Bảng điểm:** HUD và bảng điểm điện tử hiện tỉ số ba số và số người giao; nhãn đội là US / THEM.
+- Kiểm thử mô phỏng: nhiều trận đôi đầy đủ giữa bốn AI được chạy để kiểm tra luật xoay vòng giao bóng, người nhận đúng, side out và kết thúc game (xem mục Kiểm thử).
+
+## Luật tóm tắt (đánh đơn, chế độ đôi xem mục trên)
 
 - **Giao bóng:** giao bóng thấp tay (underhand) từ sau vạch cuối sân, chéo sang ô giao bóng đối diện. Bóng phải qua khỏi vùng bếp (rơi trúng bếp, kể cả vạch bếp, là lỗi). Chỉ có một lần giao, bóng chạm lưới rồi vào ô vẫn chơi tiếp (let).
 - **Ô giao bóng:** điểm của người giao chẵn thì đứng ô phải, lẻ thì đứng ô trái.
@@ -66,7 +76,7 @@ Trên điện thoại: cần joystick bên trái, hai nút HIT và SOFT bên ph�
 
 ## AI
 
-Ba mức Easy, Normal, Hard (khác tốc độ chạy, độ trễ phản ứng, sai số cú đánh). AI dự đoán điểm rơi bằng mô phỏng quỹ đạo, đứng sâu cho tới cú thứ ba rồi tiến lên vạch bếp, dink khi ở lưới, drive khi bạn đứng sâu, thỉnh thoảng lob. AI tuân thủ luật bếp, chỉ ở mức Easy mới thỉnh thoảng phạm lỗi bếp.
+Ba mức Easy, Normal, Hard (áp dụng cho đối thủ và đồng đội AI; khác tốc độ chạy, độ trễ phản ứng, sai số cú đánh). AI dự đoán điểm rơi bằng mô phỏng quỹ đạo, đứng sâu cho tới cú thứ ba rồi tiến lên vạch bếp, dink khi ở lưới, drive khi bạn đứng sâu, thỉnh thoảng lob. AI tuân thủ luật bếp, chỉ ở mức Easy mới thỉnh thoảng phạm lỗi bếp.
 
 ## Kiểm thử
 
@@ -74,7 +84,7 @@ Ba mức Easy, Normal, Hard (khác tốc độ chạy, độ trễ phản ứng,
 node tests/rules.test.js
 ```
 
-Chạy các kiểm tra logic luật (ô giao bóng theo điểm chẵn lẻ, side-out, hai nảy, bếp, double bounce, thắng game hơn 2 điểm, best of 3) và vật lý (bắn bóng vào đúng điểm, va chạm lưới). Các tham số cân chỉnh nằm hết trong object `CONFIG` ở đầu phần script.
+Chạy các kiểm tra logic luật, gồm cả luật đôi (tỉ số 0-0-2, xoay vòng người giao 1 và 2, side out, đổi ô, người nhận đúng, 300 game đôi ngẫu nhiên kiểm tra bất biến) và đơn (ô giao bóng theo điểm chẵn lẻ, side-out, hai nảy, bếp, double bounce, thắng game hơn 2 điểm, best of 3) và vật lý (bắn bóng vào đúng điểm, va chạm lưới). Các tham số cân chỉnh nằm hết trong object `CONFIG` ở đầu phần script.
 
 ## Cấu trúc code (trong index.html)
 
@@ -82,4 +92,4 @@ CONFIG, Rules, Ball (vật lý tự viết, bước cố định 120 Hz), Input,
 
 ## Ảnh chụp
 
-Xem thư mục `shots/` (title, transition, game, rally_closeup, mobile_portrait, mobile_landscape, cue_bounce, cue_kitchen, fault_reason, serve_target).
+Xem thư mục `shots/` (title, transition, game, rally_closeup, mobile_portrait, mobile_landscape, doubles_serve, doubles_rally, singles_game, cue_bounce, cue_kitchen, fault_reason, serve_target).

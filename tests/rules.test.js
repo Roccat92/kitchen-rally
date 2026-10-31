@@ -67,4 +67,52 @@ const C=CONFIG.court;
     const r3=new Rules(CONFIG); r3.onServe(); r3.onBounce(-1,-4); r3.onHit(1,false); r3.onBounce(1,3); r3.onHit(0,false); ev=r3.onHit(1,true); t('kitchen volley reason',ev&&/Kitchen volley/.test(ev.detail),ev&&ev.detail);
     const r4=new Rules(CONFIG); r4.onServe(); ev=r4.onBounce(-1,-1.0); t('serve in kitchen reason',ev&&/Serve in kitchen/.test(ev.detail),ev&&ev.detail);
     const r5=new Rules(CONFIG); r5.onServe(); ev=r5.onBounce(0,-9); t('out reason',ev&&/^Out/.test(ev.detail)); }
+
+// ---- doubles
+{ const r=new Rules(CONFIG,true);
+  t('doubles starts 0-0-2 with team 0, human (id 0) serving from the right court', r.call()==='0 - 0 - 2'&&r.server===0&&r.serverId===0&&r.serverNum===2&&r.serveCourtSign()===1);
+  t('receiver is a far-team player standing in the diagonal box (x<0 when the human serves from x>0)', r.slotSign(r.receiverId())===r.receiveCourtSign()&&r.receiverId()%2===1);
+  // first server faults at 0-0-2: immediate side out, no second server
+  r.onServe(); const ev=r.fault(0,'FAULT','x');
+  t('0-0-2 fault = side out straight away', ev.sideOut&&!ev.secondServer&&r.server===1&&r.serverNum===1&&r.call()==='0 - 0 - 1'&&r.serverId===1); }
+{ const r=new Rules(CONFIG,true); r.server=1; r._sid=1; r.serverNum=1; // team 1 server 1 (right court player = id 1, x<0)
+  t('team1 server 1 right court x<0', r.serveCourtSign()===-1);
+  r.onServe(); let ev=r.fault(0,'FAULT','receiver fault');
+  t('server team wins rally: scores, swaps courts, same server, now left court', ev.scorer===1&&r.score[1]===1&&r.serverId===1&&r.serveCourtSign()===1&&r.serverNum===1&&r.call()==='1 - 0 - 1',r.call());
+  t('partner swapped into the right court', r.pos[1][0]===3&&r.pos[1][1]===1);
+  r.onServe(); ev=r.fault(1,'FAULT','server fault');
+  t('server 1 faults: partner is server 2 (no side out, same score)', ev.secondServer&&!ev.sideOut&&r.server===1&&r.serverId===3&&r.serverNum===2&&r.score[1]===1&&r.call()==='1 - 0 - 2',r.call());
+  t('server 2 serves from the court it stands in (id 3, right-hand court of team 1 = x<0)', r.serveCourtSign()===-1);
+  r.onServe(); ev=r.fault(3,'FAULT','server 2 fault');
+  t('server 2 faults: side out to team 0 server 1', ev.sideOut&&r.server===0&&r.serverNum===1&&r.serverId===r.pos[0][0]&&r.call()==='0 - 1 - 1',r.call()); }
+{ const r=new Rules(CONFIG,true); r.onServe();
+  // human serves from right (x>0) -> receiver box x<0; correct receiver is the far player standing on x<0
+  const rid=r.receiverId(), wrong=rid^2; r.onBounce(-1,-4);
+  let ev=r.onHit(wrong,false); t('wrong receiver returning the serve is a fault', ev&&/Wrong receiver/.test(ev.detail)&&ev.faulter===wrong&&ev.scorer===0,ev&&ev.detail);
+  const r2=new Rules(CONFIG,true); r2.onServe(); r2.onBounce(-1,-4); ev=r2.onHit(r2.receiverId(),false); t('correct receiver returns serve ok',ev===null&&r2.hits===2);
+  ev=r2.onHit(r2.receiverId()^2,false); t('partner cannot hit right after teammate (same team, ignored)',ev===null&&r2.hits===2&&r2.lastHitter===r2.receiverId());
+  // two-bounce applies to the serving team partner (third shot) and to kitchen volleys for any player
+  r2.onBounce(1,3); ev=r2.onHit(2,false); t('server partner may hit the bounced return',ev===null&&r2.hits===3);
+  const r3=new Rules(CONFIG,true); r3.onServe(); r3.onBounce(-1,-4); r3.onHit(r3.receiverId(),false); ev=r3.onHit(2,false); t('server team partner volleying the return -> two-bounce rule', ev&&/Two-bounce/.test(ev.detail),JSON.stringify(ev));
+  const r4=new Rules(CONFIG,true); r4.onServe(); r4.onBounce(-1,-4); r4.onHit(r4.receiverId(),false); r4.onBounce(1,3); r4.onHit(0,false); ev=r4.onHit(3,true); t('doubles kitchen volley by far partner is a fault',ev&&/Kitchen volley/.test(ev.detail)&&ev.faulter===3); }
+{ // random full games: invariants
+  let bad=[], games=0, sideOuts=0, nominal=0;
+  for(let g=0; g<300; g++){
+    const r=new Rules(CONFIG,true); r.gameIndex=g%2; r.startGame(); let turn=[]; let serves=0, lastTeam=r.server, lastNum=r.serverNum;
+    for(let i=0;i<400;i++){
+      const before={score:r.score.slice(),server:r.server,num:r.serverNum,sid:r.serverId};
+      if(Rules.teamOf(r.serverId)!==r.server) bad.push('server not on serving team');
+      if(r.slotSign(r.receiverId())!==r.receiveCourtSign()||Rules.teamOf(r.receiverId())===r.server) bad.push('receiver wrong');
+      r.onServe(); const serverWins=Math.random()<0.55;
+      const ev=serverWins? r.fault(1-r.server,'F','x'): r.fault(r.serverId,'F','x');
+      if(ev.scorer>=0&&ev.scorer!==before.server) bad.push('non-server scored');
+      if(ev.scorer<0&&r.score[0]+r.score[1]!==before.score[0]+before.score[1]) bad.push('score changed on a non-point');
+      if(ev.sideOut){ sideOuts++; if(r.server===before.server||r.serverNum!==1) bad.push('bad side out'); if(before.num===1) bad.push('side out after server 1'); }
+      if(ev.secondServer&&(before.num!==1||r.serverNum!==2||r.serverId!==(before.sid^2))) bad.push('bad second server');
+      if(!ev.sideOut&&!ev.secondServer&&ev.scorer>=0&&(r.serverId!==before.sid||r.serverNum!==before.num)) bad.push('server changed after point');
+      if(ev.gameOver){ const w=ev.winner; if(r.score[w]<11||r.score[w]-r.score[1-w]<2) bad.push('game over early'); games++; break; }
+      r.newPoint();
+    }
+  }
+  t('300 random doubles games: invariants hold ('+games+' finished, '+sideOuts+' side outs)', bad.length===0&&games>=290, bad.slice(0,3).join('|')); }
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail?1:0);

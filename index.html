@@ -1,0 +1,1135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Kitchen Rally</title>
+<link rel="icon" href="data:,">
+<style>
+  :root { --green:#1f5a3a; --green2:#18462e; --cream:#EDE8DF; --ink:#ffffff; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { margin:0; height:100%; overflow:hidden; background:var(--cream); font-family:"Trebuchet MS",Verdana,sans-serif; color:var(--ink); user-select:none; -webkit-user-select:none; touch-action:none; }
+  canvas#gl { position:fixed; inset:0; width:100%; height:100%; display:block; }
+  .panel { background:rgba(24,70,46,.93); border:2px solid #0f3d27; border-radius:10px; box-shadow:0 4px 14px rgba(0,0,0,.25); }
+  #brand { position:fixed; left:18px; top:12px; pointer-events:none; color:#17402a; }
+  #brand h1 { margin:0; font-family:Georgia,"Times New Roman",serif; font-style:italic; font-weight:700; font-size:clamp(22px,3.4vw,40px); letter-spacing:.5px; line-height:1; }
+  #brand small { display:block; margin-top:4px; font-size:clamp(9px,1.1vw,12px); letter-spacing:3px; text-transform:uppercase; opacity:.7; }
+  #score { position:fixed; left:50%; top:10px; transform:translateX(-50%); display:flex; align-items:stretch; gap:0; padding:0; overflow:hidden; pointer-events:none; }
+  #score .side { display:flex; align-items:center; gap:8px; padding:6px 14px; min-width:92px; justify-content:center; font-weight:700; letter-spacing:1px; font-size:clamp(11px,1.5vw,15px); }
+  #score .side b { font-size:clamp(18px,2.6vw,28px); font-family:Georgia,serif; }
+  #score .side.you { background:#b83a2f; } #score .side.cpu { background:#2f67c9; }
+  #score .dot { width:9px; height:9px; border-radius:50%; background:transparent; border:1px solid rgba(255,255,255,.4); }
+  #score .side.serving .dot { background:#e8ff5a; border-color:#fff; box-shadow:0 0 6px #e8ff5a; }
+  #score .mid { padding:4px 16px; text-align:center; min-width:120px; }
+  #callTxt { font-family:Georgia,serif; font-size:clamp(20px,3vw,32px); font-weight:700; line-height:1.1; }
+  #callSub { font-size:clamp(8px,1vw,10px); letter-spacing:2px; text-transform:uppercase; opacity:.75; }
+  #games { font-size:clamp(9px,1.1vw,11px); letter-spacing:1px; opacity:.85; margin-top:1px; }
+  #callout { position:fixed; left:50%; top:34%; transform:translate(-50%,-50%); text-align:center; pointer-events:none; opacity:0; }
+  #callout .big { font-family:Georgia,serif; font-weight:700; font-style:italic; font-size:clamp(34px,8vw,84px); color:#fff; text-shadow:0 3px 0 #17402a,0 0 18px rgba(0,0,0,.35); letter-spacing:2px; }
+  #callout .sub { margin-top:4px; display:inline-block; padding:3px 12px; background:rgba(24,70,46,.9); border-radius:6px; font-size:clamp(11px,1.6vw,16px); letter-spacing:2px; text-transform:uppercase; }
+  #callout.show { animation:pop 1.5s ease-out forwards; }
+  @keyframes pop { 0%{opacity:0;transform:translate(-50%,-40%) scale(.6)} 12%{opacity:1;transform:translate(-50%,-50%) scale(1.08)} 22%{transform:translate(-50%,-50%) scale(1)} 80%{opacity:1} 100%{opacity:0;transform:translate(-50%,-56%) scale(1)} }
+  #topRight { position:fixed; right:12px; top:12px; display:flex; gap:8px; }
+  .chip { padding:7px 12px; font-size:12px; letter-spacing:1px; color:#fff; cursor:pointer; pointer-events:auto; font-weight:700; }
+  #hint { position:fixed; left:14px; bottom:12px; font-size:12px; line-height:1.5; padding:8px 12px; opacity:.92; pointer-events:none; }
+  #hint b { color:#e8ff5a; }
+  .screen { position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:20; }
+  #scrTitle { align-items:flex-end; padding-bottom:5vh; }
+  #scrTitle .card { padding:14px 26px; }
+  #scrPause, #scrEnd, #scrHow { background:rgba(237,232,223,.4); }
+  .screen.on { display:flex; }
+  .card { max-width:min(92vw,520px); padding:22px 28px; text-align:center; }
+  .card h2 { margin:0 0 6px; font-family:Georgia,serif; font-style:italic; font-size:clamp(28px,5vw,46px); }
+  .card p { margin:8px 0; font-size:clamp(12px,1.6vw,15px); line-height:1.45; }
+  .card .lead { font-size:clamp(11px,1.4vw,13px); letter-spacing:2px; text-transform:uppercase; opacity:.8; }
+  .diffs { display:flex; gap:8px; justify-content:center; margin:14px 0 10px; }
+  .btn { padding:9px 18px; border-radius:8px; border:2px solid rgba(255,255,255,.55); background:transparent; color:#fff; font-weight:700; letter-spacing:1px; cursor:pointer; font-family:inherit; font-size:14px; }
+  .btn.sel { background:#e8ff5a; color:#17402a; border-color:#e8ff5a; }
+  .btn.go { background:#fff; color:#17402a; }
+  .prompt { margin-top:12px; font-weight:700; letter-spacing:2px; animation:blink 1.2s infinite; }
+  @keyframes blink { 50%{opacity:.35} }
+  .rule { text-align:left; background:rgba(0,0,0,.18); padding:8px 12px; border-radius:8px; margin:8px 0; font-size:clamp(12px,1.5vw,14px); }
+  #touch { display:none; }
+  body.touch #touch { display:block; }
+  body.touch #hint { display:none; }
+  #joy { position:fixed; left:calc(22px + env(safe-area-inset-left)); bottom:calc(22px + env(safe-area-inset-bottom)); width:132px; height:132px; border-radius:50%; background:rgba(24,70,46,.45); border:2px solid rgba(255,255,255,.55); z-index:10; }
+  #joy i { position:absolute; left:50%; top:50%; width:56px; height:56px; margin:-28px 0 0 -28px; border-radius:50%; background:rgba(255,255,255,.85); }
+  .tbtn { position:fixed; width:84px; height:84px; border-radius:50%; border:3px solid #fff; color:#fff; font-weight:800; font-size:15px; letter-spacing:1px; display:flex; align-items:center; justify-content:center; z-index:10; }
+  #bHit { right:calc(22px + env(safe-area-inset-right)); bottom:calc(60px + env(safe-area-inset-bottom)); background:rgba(184,58,47,.8); }
+  #bSoft { right:calc(116px + env(safe-area-inset-right)); bottom:calc(22px + env(safe-area-inset-bottom)); background:rgba(47,103,201,.8); }
+  @media (max-width:640px) {
+    #brand { left:10px; top:8px; } #brand h1 { font-size:20px; } #brand small { display:none; }
+    #score { top:38px; } #score .side { min-width:60px; padding:4px 8px; font-size:11px; } #score .side b { font-size:18px; } #score .mid { min-width:96px; padding:3px 8px; }
+    #callSub, #games { white-space:nowrap; } #callSub { letter-spacing:1px; }
+    #topRight { top:6px; right:8px; gap:6px; } .chip { padding:5px 8px; font-size:10px; }
+  }
+  @media (max-height:460px) { #score { top:6px; } #brand h1 { font-size:20px; } #brand small { display:none; } .chip { padding:5px 9px; font-size:10px; } }
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+
+<div id="brand"><h1>Kitchen Rally</h1><small>Pickleball Open</small></div>
+
+<div id="score" class="panel">
+  <div class="side you serving" id="sideYou"><span class="dot"></span>YOU <b id="sYou">0</b></div>
+  <div class="mid"><div id="callTxt">0 - 0</div><div id="callSub">server - receiver</div><div id="games">GAME 1 &middot; GAMES 0-0</div></div>
+  <div class="side cpu" id="sideCpu"><b id="sCpu">0</b> CPU <span class="dot"></span></div>
+</div>
+
+<div id="topRight">
+  <div class="chip panel" id="btnMute">SOUND ON</div>
+  <div class="chip panel" id="btnPause">PAUSE</div>
+</div>
+
+<div id="hint" class="panel"><b>WASD / Arrows</b> move &nbsp; <b>J / Space</b> drive &nbsp; <b>K</b> dink / lob &nbsp; <b>Enter</b> pause &nbsp; <b>M</b> mute &nbsp; <b>C</b> controls: <span id="ctlMode">court</span></div>
+
+<div id="callout"><div class="big" id="coBig"></div><div class="sub" id="coSub"></div></div>
+
+<div id="scrTitle" class="screen"><div class="card panel">
+  <p class="lead">Singles &middot; First to 11 &middot; Best of 3</p>
+  <h2>Kitchen Rally</h2>
+  <p>A tiny floating pickleball club. Stay out of the kitchen, let the serve bounce, win the rally.</p>
+  <div class="diffs" id="diffs"><button class="btn" data-d="easy">EASY</button><button class="btn sel" data-d="normal">NORMAL</button><button class="btn" data-d="hard">HARD</button></div>
+  <div class="prompt" id="startPrompt">PRESS ENTER / TAP TO START</div>
+  <p class="lead" style="margin-top:10px">&larr; &rarr; change difficulty</p>
+</div></div>
+
+<div id="scrHow" class="screen"><div class="card panel">
+  <h2>How to play</h2>
+  <div class="rule"><b>Two-bounce rule:</b> the serve must bounce, and so must the return, before anyone may volley.</div>
+  <div class="rule"><b>Kitchen rule:</b> no volleys while standing in the kitchen (the zone by the net, line included). You may step in to hit a ball that has bounced.</div>
+  <p class="lead">Only the server scores &middot; hold a direction to aim</p>
+  <div class="prompt">PRESS ENTER / TAP TO SERVE</div>
+</div></div>
+
+<div id="scrPause" class="screen"><div class="card panel">
+  <h2>Paused</h2>
+  <p><button class="btn go" id="btnResume">RESUME (ENTER)</button> <button class="btn" id="btnQuit">QUIT TO TITLE (Q)</button></p>
+</div></div>
+
+<div id="scrEnd" class="screen"><div class="card panel">
+  <p class="lead">Match over</p>
+  <h2 id="endTitle">You win!</h2>
+  <p id="endSub"></p>
+  <p><button class="btn go" id="btnAgain">PLAY AGAIN (ENTER)</button></p>
+</div></div>
+
+<div id="touch">
+  <div id="joy"><i id="joyKnob"></i></div>
+  <div class="tbtn" id="bSoft">SOFT</div>
+  <div class="tbtn" id="bHit">HIT</div>
+</div>
+
+<script type="module">
+import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
+
+// ==== LOGIC BEGIN (pure JS, no DOM / three.js: unit-tested in node) ====
+// ---------------------------------------------------------------- CONFIG
+const CONFIG = {
+  court:   { width: 6.10, length: 13.41, kitchen: 2.134, netSide: 0.914, netCenter: 0.864, netHalfSpan: 3.4, lineW: 0.05 },
+  match:   { pointsToWin: 11, winBy: 2, bestOf: 3 },
+  physics: { gravity: 9.81, drag: 0.045, restitution: 0.6, groundFriction: 0.86, ballRadius: 0.04, step: 1 / 120, rollDamp: 1.8, minImpact: 0.6 },
+  player:  { speed: 5.4, accel: 38, swingTime: 0.26, swingSlow: 0.35, reach: 1.3, minHitY: 0.08, maxHitY: 2.1,
+             footRadius: 0.12, hitCooldown: 0.3, boundX: 4.7, boundZ: 8.4, netGap: 0.45, serveZ: 0.6, serveDepth: 1.6 },
+  input:   { bufferMs: 150, deadzone: 0.2 },
+  shot:    { driveSpeed: 15, serveSpeed: 11, dinkT: 1.0, lobT: 1.75, softServeT: 1.3, dinkMaxZ: 4.4, netClear: 0.18,
+             humanErr: 0.12, stretchErr: 0.3, timingSkew: 1.4, serveHeight: 0.95 },
+  ai: {
+    easy:   { speed: 4.3, reaction: 0.36, err: 0.55, lobP: 0.04, dinkP: 0.4, kitchenFault: 0.07 },
+    normal: { speed: 5.2, reaction: 0.22, err: 0.30, lobP: 0.10, dinkP: 0.6, kitchenFault: 0 },
+    hard:   { speed: 6.0, reaction: 0.10, err: 0.14, lobP: 0.14, dinkP: 0.75, kitchenFault: 0 }
+  },
+  serve:   { aiDelay: 1.2, release: 0.11 },
+  timing:  { pointOver: 2.2, gameOver: 3.2, matchOver: 3.0 },
+  camera:  { yawDeg: 45, pitchDeg: 35, orbitSpeed: 0.12, playZoom: 0.88 },
+  render:  { shadowMap: 2048, maxPixelRatio: 2, island: { hx: 13, hz: 15.8 } }
+};
+
+// ---------------------------------------------------------------- RULES
+// Players: 0 = human on the +z side, 1 = AI on the -z side. Net at z = 0.
+class Rules {
+  constructor(cfg) { this.c = cfg; this.resetMatch(); }
+  resetMatch() { this.games = [0, 0]; this.gameIndex = 0; this.matchWinner = -1; this.startGame(); }
+  startGame() { this.score = [0, 0]; this.server = this.gameIndex % 2; this.gameWinner = -1; this.newPoint(); }
+  nextGame() { this.gameIndex++; this.startGame(); }
+  newPoint() { this.phase = 'serve'; this.lastHitter = -1; this.hits = 0; this.bounces = 0; this.netTouched = false; this.watch = [false, false]; }
+  static sideOf(z) { return z > 0 ? 0 : 1; }
+  // x sign (world) of the service court the server stands in: even score = server's right court
+  serveCourtSign() {
+    const even = (this.score[this.server] & 1) === 0;
+    const right = this.server === 0 ? 1 : -1; // human faces -z so its right is +x; AI faces +z so its right is -x
+    return even ? right : -right;
+  }
+  receiveCourtSign() { return -this.serveCourtSign(); }
+  inKitchen(x, z) { const c = this.c.court; return Math.abs(z) - this.c.player.footRadius <= c.kitchen && Math.abs(x) <= c.width / 2 + this.c.player.footRadius; }
+  gamePoint() { const s = this.score[this.server], r = this.score[1 - this.server], m = this.c.match; return s + 1 >= m.pointsToWin && s + 1 - r >= m.winBy; }
+  call() { return this.score[this.server] + ' - ' + this.score[1 - this.server]; }
+  onServe() { this.phase = 'rally'; this.lastHitter = this.server; this.hits = 1; this.bounces = 0; this.netTouched = false; this.watch = [false, false]; }
+  // player p strikes the ball. kitchen = p is in / touching the kitchen. Returns a fault event or null.
+  onHit(p, kitchen) {
+    if (this.phase !== 'rally' || p === this.lastHitter) return null;
+    const volley = this.bounces === 0;
+    if (volley && this.hits <= 2) return this.fault(p, 'FAULT', 'Two-bounce rule');
+    if (volley && kitchen) return this.fault(p, 'KITCHEN!', 'Volley in the kitchen');
+    this.hits++; this.lastHitter = p; this.bounces = 0; this.netTouched = false;
+    this.watch[0] = this.watch[1] = false;
+    if (volley) this.watch[p] = true;
+    return null;
+  }
+  onNet() { this.netTouched = true; }
+  onBounce(x, z) {
+    if (this.phase !== 'rally') return null;
+    const c = this.c.court, hw = c.width / 2, hl = c.length / 2;
+    this.bounces++; this.watch[0] = this.watch[1] = false;
+    const side = Rules.sideOf(z);
+    if (this.bounces === 1) {
+      if (Math.abs(x) > hw || Math.abs(z) > hl) return this.fault(this.lastHitter, 'OUT', 'Ball landed out');
+      if (side === this.lastHitter) return this.netTouched ? this.fault(this.lastHitter, 'NET', 'Ball hit the net')
+                                                           : this.fault(this.lastHitter, 'FAULT', 'Did not clear the net');
+      if (this.hits === 1) {
+        if (Math.abs(z) <= c.kitchen) return this.fault(this.lastHitter, 'FAULT', 'Serve landed in the kitchen');
+        if (x * this.receiveCourtSign() < 0) return this.fault(this.lastHitter, 'FAULT', 'Serve landed in the wrong court');
+      }
+      return null;
+    }
+    return this.fault(1 - this.lastHitter, 'FAULT', 'Double bounce');
+  }
+  // stepping into the kitchen after a volley, before the ball bounces
+  momentum(p, kitchen) {
+    if (this.phase === 'rally' && this.watch[p] && kitchen) return this.fault(p, 'KITCHEN!', 'Stepped in after a volley');
+    return null;
+  }
+  fault(faulter, label, detail) {
+    this.phase = 'dead';
+    const m = this.c.match, s = this.server;
+    const ev = { label, detail, faulter, sideOut: false, scorer: -1, gameOver: false, matchOver: false, winner: -1 };
+    if (faulter === s) { ev.sideOut = true; this.server = 1 - s; }
+    else {
+      this.score[s]++; ev.scorer = s;
+      const a = this.score[s], b = this.score[1 - s];
+      if (a >= m.pointsToWin && a - b >= m.winBy) {
+        ev.gameOver = true; ev.winner = s; this.gameWinner = s; this.games[s]++;
+        if (this.games[s] >= Math.ceil(m.bestOf / 2)) { ev.matchOver = true; this.matchWinner = s; }
+      }
+    }
+    return ev;
+  }
+}
+
+// ---------------------------------------------------------------- BALL PHYSICS (custom)
+class Ball {
+  constructor(cfg) {
+    this.c = cfg; this.live = false;
+    this.x = 0; this.y = 1; this.z = 0; this.vx = 0; this.vy = 0; this.vz = 0; this.px = 0; this.py = 0; this.pz = 0;
+    this.bounceEv = false; this.bx = 0; this.bz = 0; this.netEv = 0; // netEv: 0 none, 1 tape (rolled over), 2 body (dropped)
+  }
+  step(dt) {
+    const P = this.c.physics, C = this.c.court;
+    this.bounceEv = false; this.netEv = 0;
+    this.px = this.x; this.py = this.y; this.pz = this.z;
+    this.vy -= P.gravity * dt;
+    const f = Math.max(0, 1 - P.drag * Math.sqrt(this.vx * this.vx + this.vy * this.vy + this.vz * this.vz) * dt);
+    this.vx *= f; this.vy *= f; this.vz *= f;
+    this.x += this.vx * dt; this.y += this.vy * dt; this.z += this.vz * dt;
+    // net plane crossing
+    if ((this.pz > 0 && this.z <= 0) || (this.pz < 0 && this.z >= 0)) {
+      const t = this.pz / (this.pz - this.z), cx = this.px + (this.x - this.px) * t, cy = this.py + (this.y - this.py) * t;
+      if (Math.abs(cx) <= C.netHalfSpan) {
+        const h = C.netCenter + (C.netSide - C.netCenter) * Math.min(1, Math.abs(cx) / (C.width / 2));
+        if (cy < h - 0.02) {           // hit the net body: drops back
+          this.x = cx; this.y = cy; this.z = (this.pz > 0 ? 1 : -1) * 0.04;
+          this.vz = -this.vz * 0.1; this.vx *= 0.35; this.vy = Math.min(this.vy, 0) * 0.3; this.netEv = 2;
+        } else if (cy < h + 0.07) {    // clipped the tape: slows and rolls over
+          this.vz *= 0.55; this.vx *= 0.75; this.vy = Math.max(this.vy * 0.3, 1.2); this.netEv = 1;
+        }
+      }
+    }
+    // ground
+    if (this.y <= P.ballRadius && this.vy < 0) {
+      const impact = -this.vy;
+      this.y = P.ballRadius; this.vy = impact * P.restitution;
+      if (impact > P.minImpact) {
+        this.vx *= P.groundFriction; this.vz *= P.groundFriction; this.bounceEv = true; this.bx = this.x; this.bz = this.z;
+      } else { this.vy = 0; const r = Math.max(0, 1 - P.rollDamp * dt); this.vx *= r; this.vz *= r; }
+      if (this.vy < 0.5) this.vy = 0;
+    }
+    const ix = this.c.render.island.hx - 1, iz = this.c.render.island.hz - 1;
+    if (this.x > ix || this.x < -ix) { this.x = Math.max(-ix, Math.min(ix, this.x)); this.vx *= -0.2; }
+    if (this.z > iz || this.z < -iz) { this.z = Math.max(-iz, Math.min(iz, this.z)); this.vz *= -0.2; }
+  }
+}
+
+// forward flight simulation (no net) until the first ground contact. Fills out.{lx,lz,t,netY,crossed}
+function simFlight(c, sx, sy, sz, vx, vy, vz, out) {
+  const P = c.physics, dt = P.step;
+  let x = sx, y = sy, z = sz, t = 0;
+  out.crossed = false; out.netY = -99;
+  for (let i = 0; i < 700; i++) {
+    const pz = z, py = y;
+    vy -= P.gravity * dt;
+    const f = Math.max(0, 1 - P.drag * Math.sqrt(vx * vx + vy * vy + vz * vz) * dt);
+    vx *= f; vy *= f; vz *= f;
+    x += vx * dt; y += vy * dt; z += vz * dt; t += dt;
+    if (!out.crossed && ((pz > 0 && z <= 0) || (pz < 0 && z >= 0))) { const k = pz / (pz - z); out.netY = py + (y - py) * k; out.crossed = true; }
+    if (y <= P.ballRadius && vy < 0) break;
+  }
+  out.lx = x; out.lz = z; out.t = t;
+  return out;
+}
+
+// find a launch velocity from (sx,sy,sz) landing at (tx,tz) in about T seconds (drag compensated by shooting iterations)
+function solveShot(c, sx, sy, sz, tx, tz, T, out, tmp) {
+  const g = c.physics.gravity;
+  let vx = (tx - sx) / T, vz = (tz - sz) / T, vy = (c.physics.ballRadius - sy + 0.5 * g * T * T) / T;
+  for (let i = 0; i < 6; i++) {
+    simFlight(c, sx, sy, sz, vx, vy, vz, tmp);
+    const tt = Math.max(tmp.t, 0.2);
+    vx += (tx - tmp.lx) / tt; vz += (tz - tmp.lz) / tt; vy += 0.5 * g * (T - tmp.t);
+  }
+  simFlight(c, sx, sy, sz, vx, vy, vz, tmp);
+  out.vx = vx; out.vy = vy; out.vz = vz; out.lx = tmp.lx; out.lz = tmp.lz; out.t = tmp.t; out.netY = tmp.netY; out.crossed = tmp.crossed;
+  return out;
+}
+// ==== LOGIC END ====
+
+// ---------------------------------------------------------------- helpers
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+const lerp = (a, b, t) => a + (b - a) * t;
+const rand = (a, b) => a + Math.random() * (b - a);
+function gauss() { let u = 0, v = 0; while (u === 0) u = Math.random(); while (v === 0) v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+const $ = (id) => document.getElementById(id);
+
+// ---------------------------------------------------------------- AUDIO (WebAudio oscillators, 8-bit-ish)
+class AudioFX {
+  constructor() { this.ctx = null; this.muted = false; this.master = null; this.noiseBuf = null; }
+  ensure() {
+    if (!this.ctx) {
+      try {
+        const AC = window.AudioContext || window.webkitAudioContext; this.ctx = new AC();
+        this.master = this.ctx.createGain(); this.master.gain.value = 0.5; this.master.connect(this.ctx.destination);
+        const n = this.ctx.sampleRate, buf = this.ctx.createBuffer(1, n, n), d = buf.getChannelData(0);
+        for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1; this.noiseBuf = buf;
+      } catch (e) { this.ctx = null; }
+    }
+    if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+  }
+  setMuted(m) { this.muted = m; if (this.master) this.master.gain.value = m ? 0 : 0.5; }
+  tone(type, f0, f1, dur, vol, delay = 0) {
+    if (!this.ctx || this.muted) return;
+    const t = this.ctx.currentTime + delay, o = this.ctx.createOscillator(), g = this.ctx.createGain();
+    o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0008, t + dur);
+    o.connect(g); g.connect(this.master); o.start(t); o.stop(t + dur + 0.02);
+  }
+  noise(dur, vol, freq, q, type = 'bandpass', delay = 0, attack = 0.005) {
+    if (!this.ctx || this.muted) return;
+    const t = this.ctx.currentTime + delay, s = this.ctx.createBufferSource(), f = this.ctx.createBiquadFilter(), g = this.ctx.createGain();
+    s.buffer = this.noiseBuf; f.type = type; f.frequency.value = freq; f.Q.value = q;
+    g.gain.setValueAtTime(0.0008, t); g.gain.exponentialRampToValueAtTime(vol, t + attack); g.gain.exponentialRampToValueAtTime(0.0008, t + dur);
+    s.connect(f); f.connect(g); g.connect(this.master); s.start(t); s.stop(t + dur + 0.05);
+  }
+  sfx(name) {
+    switch (name) {
+      case 'pock': this.tone('triangle', 720, 260, 0.07, 0.5); this.noise(0.03, 0.25, 2200, 1.2); break;
+      case 'bounce': this.tone('sine', 230, 120, 0.06, 0.35); break;
+      case 'net': this.noise(0.18, 0.35, 500, 0.8); this.tone('square', 160, 90, 0.1, 0.12); break;
+      case 'fault': this.tone('sawtooth', 190, 110, 0.28, 0.22); break;
+      case 'cheer': this.noise(1.0, 0.45, 1100, 0.6, 'bandpass', 0, 0.12); this.noise(0.8, 0.25, 2400, 0.8, 'bandpass', 0.05, 0.1); break;
+      case 'blip': this.tone('square', 880, 880, 0.05, 0.14); break;
+      case 'blip2': this.tone('square', 660, 990, 0.08, 0.14); break;
+    }
+  }
+}
+
+// ---------------------------------------------------------------- INPUT (keyboard + touch)
+class Input {
+  constructor() {
+    this.keys = new Set(); this.joyX = 0; this.joyY = 0; this.onAction = null; this.touchId = null; this.screenRel = false;
+    const MAP = { ArrowLeft: 'l', KeyA: 'l', ArrowRight: 'r', KeyD: 'r', ArrowUp: 'u', KeyW: 'u', ArrowDown: 'd', KeyS: 'd' };
+    this.MAP = MAP;
+    addEventListener('keydown', (e) => {
+      if (MAP[e.code] || e.code === 'Space' || e.code === 'Enter') e.preventDefault();
+      if (e.repeat) return;
+      if (MAP[e.code]) { this.keys.add(MAP[e.code]); this.fire(e.code === 'ArrowLeft' || e.code === 'KeyA' ? 'left' : e.code === 'ArrowRight' || e.code === 'KeyD' ? 'right' : 'dir'); return; }
+      if (e.code === 'KeyJ' || e.code === 'Space') this.fire('hit');
+      else if (e.code === 'KeyK') this.fire('soft');
+      else if (e.code === 'Enter') this.fire('enter');
+      else if (e.code === 'KeyM') this.fire('mute');
+      else if (e.code === 'KeyC') this.fire('ctl');
+      else if (e.code === 'KeyQ') this.fire('quit');
+      else if (e.code === 'Escape') this.fire('pause');
+    });
+    addEventListener('keyup', (e) => { if (MAP[e.code]) this.keys.delete(MAP[e.code]); });
+    addEventListener('blur', () => this.keys.clear());
+    this.setupTouch();
+  }
+  fire(n) { if (this.onAction) this.onAction(n); }
+  setupTouch() {
+    const joy = $('joy'), knob = $('joyKnob');
+    const upd = (t) => {
+      const r = joy.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2, R = r.width / 2;
+      let dx = (t.clientX - cx) / R, dy = (t.clientY - cy) / R; const m = Math.hypot(dx, dy); if (m > 1) { dx /= m; dy /= m; }
+      this.joyX = dx; this.joyY = dy; knob.style.transform = `translate(${dx * R * 0.6}px,${dy * R * 0.6}px)`;
+    };
+    const find = (list) => { for (const t of list) if (t.identifier === this.touchId) return t; return null; };
+    joy.addEventListener('touchstart', (e) => { e.preventDefault(); const t = e.changedTouches[0]; this.touchId = t.identifier; upd(t); this.fire('touch'); }, { passive: false });
+    joy.addEventListener('touchmove', (e) => { e.preventDefault(); const t = find(e.changedTouches); if (t) upd(t); }, { passive: false });
+    const end = (e) => { if (find(e.changedTouches)) { this.touchId = null; this.joyX = 0; this.joyY = 0; knob.style.transform = ''; } };
+    joy.addEventListener('touchend', end); joy.addEventListener('touchcancel', end);
+    const btn = (id, name) => { const el = $(id); el.addEventListener('touchstart', (e) => { e.preventDefault(); this.fire('touch'); this.fire(name); }, { passive: false }); el.addEventListener('mousedown', (e) => { e.preventDefault(); this.fire(name); }); };
+    btn('bHit', 'hit'); btn('bSoft', 'soft');
+  }
+  // out = [wx, wz]: desired direction in WORLD axes for the human (who attacks toward -z)
+  world(out) {
+    const k = this.keys;
+    let ix = (k.has('r') ? 1 : 0) - (k.has('l') ? 1 : 0) + this.joyX, iy = (k.has('u') ? 1 : 0) - (k.has('d') ? 1 : 0) - this.joyY; // iy: up positive
+    const m = Math.hypot(ix, iy);
+    if (m < CONFIG.input.deadzone) { out[0] = 0; out[1] = 0; return out; }
+    if (m > 1) { ix /= m; iy /= m; }
+    if (this.screenRel) { const s = Math.SQRT1_2; out[0] = (ix - iy) * s; out[1] = (-ix - iy) * s; }
+    else { out[0] = ix; out[1] = -iy; }
+    return out;
+  }
+}
+
+// ---------------------------------------------------------------- merged static geometry builder
+class Batch {
+  constructor() {
+    this.pos = []; this.nor = []; this.col = [];
+    this.m = new THREE.Matrix4(); this.q = new THREE.Quaternion(); this.e = new THREE.Euler(); this.p = new THREE.Vector3(); this.s = new THREE.Vector3();
+    this.v = new THREE.Vector3(); this.n = new THREE.Vector3(); this.nm = new THREE.Matrix3(); this.c = new THREE.Color(); this.c2 = new THREE.Color();
+    this.boxGeo = Batch.flat(new THREE.BoxGeometry(1, 1, 1));
+  }
+  static flat(g) { const n = g.index ? g.toNonIndexed() : g; n.computeVertexNormals(); return n; }
+  addGeo(geo, color, x, y, z, sx = 1, sy = 1, sz = 1, rx = 0, ry = 0, rz = 0, alt = null, altN = 0) {
+    this.m.compose(this.p.set(x, y, z), this.q.setFromEuler(this.e.set(rx, ry, rz)), this.s.set(sx, sy, sz));
+    this.nm.getNormalMatrix(this.m);
+    const pa = geo.attributes.position, na = geo.attributes.normal;
+    this.c.set(color); if (alt !== null) this.c2.set(alt);
+    for (let i = 0; i < pa.count; i++) {
+      this.v.fromBufferAttribute(pa, i).applyMatrix4(this.m); this.pos.push(this.v.x, this.v.y, this.v.z);
+      this.n.fromBufferAttribute(na, i).applyMatrix3(this.nm).normalize(); this.nor.push(this.n.x, this.n.y, this.n.z);
+      const cc = (alt !== null && (i / 3 | 0) < altN && ((i / 3 | 0) & 1)) ? this.c2 : this.c;
+      this.col.push(cc.r, cc.g, cc.b);
+    }
+  }
+  box(x, y, z, w, h, d, color, ry = 0, rx = 0, rz = 0) { this.addGeo(this.boxGeo, color, x, y, z, w, h, d, rx, ry, rz); }
+  // box with its bottom at y0
+  stack(x, y0, z, w, h, d, color, ry = 0) { this.box(x, y0 + h / 2, z, w, h, d, color, ry); }
+  build(material, cast = true, receive = true) {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(this.pos, 3));
+    g.setAttribute('normal', new THREE.Float32BufferAttribute(this.nor, 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(this.col, 3));
+    g.computeBoundingSphere();
+    const m = new THREE.Mesh(g, material); m.castShadow = cast; m.receiveShadow = receive; return m;
+  }
+}
+
+function textTexture(w, h, draw) {
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h; const ctx = cv.getContext('2d'); draw(ctx, w, h);
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return { tex: t, ctx, cv };
+}
+
+// ---------------------------------------------------------------- ISLAND + VENUE BUILDER
+class Venue {
+  constructor(scene) {
+    this.scene = scene; this.spectators = null; this.board = null;
+    const B = new Batch();     // solid static stuff
+    const F = new Batch();     // transparent fence / net panels
+    const P = this.P = { fx: 4.9, fz: 8.8 };
+    this.island(B); this.court(B, F); this.fence(B, F); this.clubhouse(B); this.cafe(B); this.stand(B); this.trees(B); this.props(B);
+    const solid = B.build(new THREE.MeshLambertMaterial({ vertexColors: true }));
+    scene.add(solid);
+    const glass = F.build(new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, opacity: 0.2, depthWrite: false }), false, false);
+    glass.renderOrder = 3; scene.add(glass);
+    this.banners(); this.scoreboard(); this.makeSpectators();
+  }
+  island(B) {
+    const hx = CONFIG.render.island.hx, hz = CONFIG.render.island.hz, cell = 1.4;
+    const nx = Math.round(2 * hx / cell), nz = Math.round(2 * hz / cell), cw = 2 * hx / nx, cd = 2 * hz / nz;
+    const layers = [[-0.08, -0.5, 0x4f9d4a], [-0.5, -1.7, 0x9a6b43], [-1.7, -3.1, 0x6b4630], [-3.1, -9, 0x6a5e55]];
+    let seed = 7; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+    for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) {
+      const x = -hx + (i + 0.5) * cw, z = -hz + (j + 0.5) * cd;
+      const edge = Math.min(hx - Math.abs(x), hz - Math.abs(z)); // distance to edge
+      const isEdge = edge < cw * 0.9;
+      const n = clamp(edge / 11, 0, 1);
+      const bottom = -(1.6 + 4.6 * Math.pow(n, 0.75) + rnd() * 0.9);
+      const jx = isEdge ? (rnd() - 0.5) * 0.35 : 0, jz = isEdge ? (rnd() - 0.5) * 0.35 : 0;
+      const grassShade = (i + j) % 2 ? 0x5aa653 : 0x4f9d4a;
+      for (let k = 0; k < layers.length; k++) {
+        const [y1, y0, col] = layers[k]; if (bottom > y1) break;
+        const lo = Math.max(y0, bottom), h = y1 - lo;
+        let c = col; if (k === 0) c = grassShade; else if (rnd() < 0.18) c = layers[Math.min(3, k + (rnd() < 0.5 ? 1 : -1))][2];
+        B.box(x + jx, lo + h / 2, z + jz, cw + 0.02, h, cd + 0.02, c);
+      }
+    }
+    // paved walkway ring around the fence + a path toward the clubhouse
+    const fx = 4.9, fz = 8.8, wl = 1.9;
+    const paved = 0xcfcdc6;
+    B.box(0, -0.05, 0, 2 * (fx + wl), 0.05, 2 * (fz + wl), paved);
+    B.box(8.2, -0.05, -5.0, 6.0, 0.05, 2.0, paved);
+  }
+  court(B, F) {
+    const C = CONFIG.court, hw = C.width / 2, hl = C.length / 2, fx = this.P.fx, fz = this.P.fz;
+    B.box(0, -0.05, 0, 2 * fx, 0.1, 2 * fz, 0x2e7d4f);       // green surround, top at y=0
+    B.box(0, -0.04, 0, C.width + 0.0, 0.1, C.length, 0x3d6fd1);   // blue court, top at y=0.01
+    const kh = C.kitchen;
+    B.box(0, -0.039, kh / 2 + 0.0, C.width, 0.1, kh, 0x5b8be0); B.box(0, -0.039, -kh / 2, C.width, 0.1, kh, 0x5b8be0);
+    const yL = 0.016, lw = C.lineW, H = 0.012, white = 0xffffff;
+    B.box(0, yL, hl - lw / 2, C.width, H, lw, white); B.box(0, yL, -hl + lw / 2, C.width, H, lw, white);
+    B.box(hw - lw / 2, yL, 0, lw, H, C.length, white); B.box(-hw + lw / 2, yL, 0, lw, H, C.length, white);
+    B.box(0, yL, kh, C.width, H, lw, white); B.box(0, yL, -kh, C.width, H, lw, white);
+    B.box(0, yL, (kh + hl) / 2, lw, H, hl - kh, white); B.box(0, yL, -(kh + hl) / 2, lw, H, hl - kh, white);   // center service lines
+    // net: posts, tape and slightly translucent mesh panels (top height follows 36in sides / 34in centre)
+    const post = 0x2b2b2b, px = C.netHalfSpan;
+    B.stack(px, 0, 0, 0.1, 1.05, 0.1, post); B.stack(-px, 0, 0, 0.1, 1.05, 0.1, post);
+    const slices = 16, sw = 2 * px / slices;
+    for (let i = 0; i < slices; i++) {
+      const x = -px + (i + 0.5) * sw, h = C.netCenter + (C.netSide - C.netCenter) * Math.min(1, Math.abs(x) / hw);
+      B.box(x, h - 0.02, 0, sw + 0.002, 0.045, 0.03, 0xffffff);
+      F.box(x, h / 2 - 0.02, 0, sw, h - 0.05, 0.015, 0x202020);
+    }
+    B.box(0, 0.035, 0, 2 * px, 0.025, 0.03, 0x444444);
+  }
+  fence(B, F) {
+    const fx = this.P.fx, fz = this.P.fz, H = 2.5, dark = 0x1b1b1b;
+    const rail = (x0, z0, x1, z1) => { const w = Math.abs(x1 - x0), d = Math.abs(z1 - z0); B.box((x0 + x1) / 2, H, (z0 + z1) / 2, w || 0.07, 0.07, d || 0.07, dark); };
+    const n = (x0, z0, x1, z1) => {
+      const len = Math.hypot(x1 - x0, z1 - z0), cnt = Math.max(1, Math.round(len / 1.7));
+      for (let i = 0; i <= cnt; i++) { const t = i / cnt; B.stack(lerp(x0, x1, t), 0, lerp(z0, z1, t), 0.1, H, 0.1, dark); }
+      rail(x0, z0, x1, z1);
+      const w = Math.abs(x1 - x0), d = Math.abs(z1 - z0);
+      F.box((x0 + x1) / 2, 0.75 + (H - 0.75) / 2, (z0 + z1) / 2, w || 0.03, H - 0.75, d || 0.03, 0x111111);
+    };
+    n(-fx, -fz, fx, -fz); n(-fx, fz, fx, fz); n(-fx, -fz, -fx, fz); n(fx, -fz, fx, fz);
+  }
+  banners() {
+    const { tex } = textTexture(512, 64, (g, w, h) => {
+      g.fillStyle = '#1e5b3a'; g.fillRect(0, 0, w, h); g.strokeStyle = '#e8ff5a'; g.lineWidth = 3; g.strokeRect(3, 3, w - 6, h - 6);
+      g.fillStyle = '#fff'; g.font = 'italic bold 36px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('Kitchen Rally', w / 2, h / 2 + 2);
+    });
+    const mat = new THREE.MeshLambertMaterial({ map: tex });
+    const fx = this.P.fx, fz = this.P.fz, h = 0.7, y = 0.45;
+    const mk = (len, x, z, ry, off) => {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(len, h), mat); m.position.set(x + off[0], y, z + off[1]); m.rotation.y = ry; m.receiveShadow = true; this.scene.add(m);
+    };
+    // all banners face the camera side (+x/+z) so the lettering reads
+    mk(4.4, -2.4, -fz, 0, [0, 0.07]); mk(4.4, 2.4, -fz, 0, [0, 0.07]);
+    mk(4.4, -2.4, fz, 0, [0, 0.07]); mk(4.4, 2.4, fz, 0, [0, 0.07]);
+    const L = 5.4;
+    for (const zc of [-5.6, 0, 5.6]) { mk(L, -fx, zc, Math.PI / 2, [0.07, 0]); mk(L, fx, zc, Math.PI / 2, [0.07, 0]); }
+  }
+  clubhouse(B) {
+    const cx = 9.4, cz = -11.2, w = 6.4, d = 4.4, wh = 3.0;
+    B.stack(cx, 0, cz, w, wh, d, 0xf1e6cf); B.stack(cx, 0, cz, w + 0.3, 0.35, d + 0.3, 0xb9b2a4);
+    const roofGeo = Batch.flat(new THREE.CylinderGeometry(1, 1, 1, 3).rotateX(-Math.PI / 2));
+    const rw = d + 1.4, rh = 2.2;
+    B.addGeo(roofGeo, 0xc8392b, cx, wh + rh / 3 - 0.02, cz, rw / 1.732, rh / 1.5, w + 1.0, 0, Math.PI / 2, 0);
+    B.stack(cx + 2.0, wh, cz - 0.6, 0.7, 1.6, 0.7, 0x9b7b64); // chimney
+    // windows + door on the +z face and +x face
+    const glass = 0x6fa6c9, frame = 0xffffff;
+    for (const wx of [-2.0, 0.5, 2.3]) { B.box(cx + wx, 1.7, cz + d / 2 + 0.03, 1.0, 1.0, 0.06, frame); B.box(cx + wx, 1.7, cz + d / 2 + 0.06, 0.82, 0.82, 0.06, glass); }
+    for (const wz of [-1.0, 1.0]) { B.box(cx + w / 2 + 0.03, 1.7, cz + wz, 0.06, 1.0, 1.0, frame); B.box(cx + w / 2 + 0.06, 1.7, cz + wz, 0.06, 0.82, 0.82, glass); }
+    B.box(cx - 1.0, 1.0, cz + d / 2 + 0.05, 1.0, 2.0, 0.08, 0x6b3f2a);
+    // porch
+    B.stack(cx - 1.0, 0, cz + d / 2 + 0.9, 2.8, 0.2, 1.8, 0xb9a98f);
+    for (const px of [-2.2, 0.2]) B.stack(cx + px, 0.2, cz + d / 2 + 1.6, 0.14, 2.3, 0.14, 0xffffff);
+    B.box(cx - 1.0, 2.55, cz + d / 2 + 0.9, 3.0, 0.14, 2.0, 0xc8392b, 0, 0.18);
+  }
+  cafe(B) {
+    const tables = [[8.4, -3.0], [8.4, -6.4], [10.6, -4.7]];
+    const cyl = Batch.flat(new THREE.CylinderGeometry(1, 1, 1, 10)), cone = Batch.flat(new THREE.ConeGeometry(1, 1, 8));
+    this.cafeCyl = cyl;
+    for (const [x, z] of tables) {
+      B.addGeo(cyl, 0xf4efe4, x, 0.78, z, 0.55, 0.06, 0.55);
+      B.stack(x, 0, z, 0.08, 0.76, 0.08, 0x555555);
+      B.stack(x, 0, z, 0.35, 0.05, 0.35, 0x555555);
+      B.stack(x, 0.2, z, 0.05, 2.1, 0.05, 0x444444);
+      B.addGeo(cone, 0xd63a2f, x, 2.45, z, 1.45, 0.65, 1.45, 0, 0, 0, 0xffffff, 8);
+      for (let k = 0; k < 3; k++) { const a = k * 2.094 + x; B.addGeo(cyl, 0x8a5a3a, x + Math.cos(a) * 1.0, 0.24, z + Math.sin(a) * 1.0, 0.2, 0.48, 0.2); }
+    }
+  }
+  stand(B) {
+    const x0 = -7.0, len = 10.4, tiers = 4;
+    for (let i = 0; i < tiers; i++) {
+      const top = 0.4 + i * 0.5, xc = x0 - i * 0.95;
+      B.stack(xc, 0, 0, 0.95, top, len, i % 2 ? 0xb9b2a4 : 0xc9c3b6);
+      B.box(xc + 0.28, top + 0.03, 0, 0.3, 0.06, len - 0.4, 0x7a5a3c); // bench plank
+    }
+    const roofX = x0 - 1.5, ph = 4.3;
+    for (const z of [-len / 2 + 0.2, 0, len / 2 - 0.2]) { B.stack(x0 + 0.5, 0, z, 0.16, ph, 0.16, 0x666a70); B.stack(x0 - 3.7, 0, z, 0.16, ph + 0.9, 0.16, 0x666a70); }
+    B.box(roofX - 0.3, ph + 0.55, 0, 5.4, 0.18, len + 0.8, 0xe9ebee, 0, 0, 0.12);
+    B.box(roofX - 0.3, ph + 0.42, 0, 5.2, 0.06, len + 0.6, 0x8b9096, 0, 0, 0.12);
+    B.stack(x0 - 4.0, 0, 0, 0.2, ph + 0.9, len, 0x9aa0a6); // back wall
+  }
+  trees(B) {
+    const cone = Batch.flat(new THREE.ConeGeometry(1, 1, 6)), ico = Batch.flat(new THREE.IcosahedronGeometry(1, 0)), hz = CONFIG.render.island.hz, hx = CONFIG.render.island.hx;
+    let seed = 11; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+    const pine = (x, z, s) => {
+      B.stack(x, 0, z, 0.35 * s, 1.0 * s, 0.35 * s, 0x6b4630);
+      for (let k = 0; k < 4; k++) B.addGeo(cone, k % 2 ? 0x1f5a3a : 0x246b44, x, (1.6 + k * 1.25) * s, z, (1.55 - k * 0.3) * s, 2.1 * s, (1.55 - k * 0.3) * s, 0, rnd() * 3, 0);
+    };
+    for (let x = -11.2; x <= 11.4; x += 2.3) pine(x, -hz + 1.7 + rnd() * 0.5, 1.0 + rnd() * 0.35);
+    for (let z = -11; z <= 12.5; z += 3.4) pine(-hx + 1.3 + rnd() * 0.4, z, 0.9 + rnd() * 0.3);
+    const round = (x, z, s) => { B.stack(x, 0, z, 0.3 * s, 1.5 * s, 0.3 * s, 0x6b4630); B.addGeo(ico, 0x5fae4e, x, 2.3 * s, z, 1.3 * s, 1.15 * s, 1.3 * s, 0, rnd() * 3, 0); B.addGeo(ico, 0x4f9d4a, x + 0.5 * s, 2.9 * s, z - 0.3 * s, 0.85 * s, 0.8 * s, 0.85 * s, 0, rnd() * 3, 0); };
+    round(11.3, 11.8, 1.1); round(-10.8, 12.6, 1.0); round(11.6, 4.5, 0.9); round(-11.2, -11.6, 1.1); round(7.0, 13.6, 0.9);
+  }
+  props(B) {
+    // light poles at the four court corners
+    const fx = this.P.fx + 0.35, fz = this.P.fz + 0.35;
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+      B.stack(sx * fx, 0, sz * fz, 0.18, 6.0, 0.18, 0x303338);
+      B.stack(sx * (fx - 0.45), 5.9, sz * fz, 0.9, 0.08, 0.08, 0x303338);
+      B.box(sx * (fx - 0.9), 5.85, sz * fz, 0.55, 0.16, 0.4, 0xfff0b0);
+    }
+    // benches
+    const bench = (x, z, ry) => { B.box(x, 0.45, z, 1.6, 0.08, 0.45, 0x7a5a3c, ry); B.box(x, 0.8, z, 1.6, 0.4, 0.06, 0x7a5a3c, ry); for (const o of [-0.65, 0.65]) { const c = Math.cos(ry), s = Math.sin(ry); B.stack(x + o * c, 0, z - o * s, 0.08, 0.45, 0.4, 0x333333, ry); } };
+    bench(0, 9.9, 0); bench(-3.2, 9.9, 0); bench(6.2, 3.5, Math.PI / 2); bench(6.2, -1.5, Math.PI / 2); bench(-2.5, -9.9, 0);
+    // bins
+    const cyl = this.cafeCyl;
+    for (const [x, z] of [[6.0, 6.5], [6.0, -3.6], [3.4, 9.9]]) { B.addGeo(cyl, 0x3d6a52, x, 0.45, z, 0.28, 0.9, 0.28); B.addGeo(cyl, 0x2a4a39, x, 0.92, z, 0.3, 0.06, 0.3); }
+    // bushes
+    const ico = Batch.flat(new THREE.IcosahedronGeometry(1, 0));
+    const bushes = [[6.1, 9.6], [-6.1, 9.7], [6.4, -9.6], [-6.4, -9.8], [7.3, 7.5], [-6.8, 5.7], [6.5, 8.1], [-6.7, -5.8], [7.2, -9.0]];
+    bushes.forEach(([x, z], i) => { const s = 0.55 + (i % 3) * 0.12; B.addGeo(ico, i % 2 ? 0x4f9d4a : 0x3f8a43, x, s * 0.7, z, s, s * 0.8, s, 0, i, 0); });
+  }
+  scoreboard() {
+    const o = textTexture(512, 256, () => {}); this.board = o;
+    const mat = new THREE.MeshBasicMaterial({ map: o.tex });
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.6), mat);
+    m.position.set(-5.8, 4.1, 0.0); m.rotation.y = Math.PI / 4; this.scene.add(m);
+    const back = new THREE.Mesh(new THREE.BoxGeometry(3.4, 1.8, 0.12), new THREE.MeshLambertMaterial({ color: 0x1b1b1b }));
+    back.position.copy(m.position); back.rotation.y = Math.PI / 4; back.translateZ(-0.09); back.castShadow = true; this.scene.add(back);
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.2, 3.4, 0.2), new THREE.MeshLambertMaterial({ color: 0x303338 }));
+    post.position.set(-5.9, 1.7, -0.1); post.castShadow = true; this.scene.add(post);
+  }
+  updateBoard(rules) {
+    const o = this.board, g = o.ctx; g.clearRect(0, 0, 512, 256);
+    g.fillStyle = '#17402a'; g.fillRect(0, 0, 512, 256); g.strokeStyle = '#e8ff5a'; g.lineWidth = 6; g.strokeRect(8, 8, 496, 240);
+    g.fillStyle = '#fff'; g.textAlign = 'center'; g.font = 'italic bold 34px Georgia, serif'; g.fillText('Kitchen Rally', 256, 56);
+    g.font = 'bold 26px Trebuchet MS, sans-serif';
+    g.fillStyle = '#ff7b6e'; g.fillText('YOU', 110, 112); g.fillStyle = '#7fb0ff'; g.fillText('CPU', 402, 112);
+    g.fillStyle = '#fff'; g.font = 'bold 92px Georgia, serif'; g.fillText(String(rules.score[0]), 110, 205); g.fillText(String(rules.score[1]), 402, 205);
+    g.font = 'bold 40px Trebuchet MS, sans-serif'; g.fillText('-', 256, 190);
+    g.font = 'bold 22px Trebuchet MS, sans-serif'; g.fillStyle = '#e8ff5a';
+    g.fillText(rules.server === 0 ? '\u25CF' : '', 40, 205); g.fillText(rules.server === 1 ? '\u25CF' : '', 472, 205);
+    g.fillStyle = '#cfe8d8'; g.fillText('GAMES ' + rules.games[0] + ' - ' + rules.games[1], 256, 238);
+    o.tex.needsUpdate = true;
+  }
+  makeSpectators() {
+    const x0 = -7.0, cols = 9, tiers = 4, N = cols * tiers;
+    const bodyG = new THREE.BoxGeometry(0.36, 0.52, 0.3), headG = new THREE.BoxGeometry(0.26, 0.26, 0.26);
+    const mat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+    this.bodies = new THREE.InstancedMesh(bodyG, mat, N); this.heads = new THREE.InstancedMesh(headG, new THREE.MeshLambertMaterial({ color: 0xffffff }), N);
+    this.bodies.castShadow = this.heads.castShadow = true;
+    this.specBase = new Float32Array(N * 3); this.specPhase = new Float32Array(N);
+    const shirts = [0xd94a3d, 0x3e8ce6, 0xf2c14e, 0x8fd16a, 0xffffff, 0x9b6fd1, 0xf08fb0], skins = [0xf1c9a5, 0xd9a07a, 0x8d5a3b, 0xe8b894];
+    const c = new THREE.Color(); let k = 0;
+    for (let t = 0; t < tiers; t++) for (let i = 0; i < cols; i++) {
+      this.specBase[k * 3] = x0 - t * 0.95 + 0.1; this.specBase[k * 3 + 1] = 0.4 + t * 0.5 + 0.1; this.specBase[k * 3 + 2] = -4.4 + i * 1.1 + (t % 2) * 0.25; this.specPhase[k] = Math.random() * 6.28;
+      this.bodies.setColorAt(k, c.set(shirts[(k * 3 + t) % shirts.length])); this.heads.setColorAt(k, c.set(skins[(k * 5 + t) % skins.length])); k++;
+    }
+    this.bodies.instanceColor.needsUpdate = true; this.heads.instanceColor.needsUpdate = true;
+    this.dummy = new THREE.Object3D(); this.scene.add(this.bodies, this.heads); this.updateSpectators(0, 0);
+  }
+  updateSpectators(time, cheer) {
+    const d = this.dummy, N = this.specPhase.length, amp = cheer > 0 ? 0.28 : 0.012, sp = cheer > 0 ? 11 : 1.4;
+    for (let i = 0; i < N; i++) {
+      const b = Math.abs(Math.sin(time * sp + this.specPhase[i])) * amp;
+      d.position.set(this.specBase[i * 3], this.specBase[i * 3 + 1] + 0.26 + b, this.specBase[i * 3 + 2]); d.updateMatrix(); this.bodies.setMatrixAt(i, d.matrix);
+      d.position.y += 0.4; d.updateMatrix(); this.heads.setMatrixAt(i, d.matrix);
+    }
+    this.bodies.instanceMatrix.needsUpdate = true; this.heads.instanceMatrix.needsUpdate = true;
+  }
+}
+
+// ---------------------------------------------------------------- CAMERA RIG (orthographic isometric)
+class CameraRig {
+  constructor() {
+    this.cam = new THREE.OrthographicCamera(-10, 10, 10, -10, 1, 400);
+    this.base = CONFIG.camera.yawDeg * Math.PI / 180; this.yaw = this.base; this.pitch = CONFIG.camera.pitchDeg * Math.PI / 180;
+    this.zoom = 1; this.aspect = 1; this.W = 1; this.H = 1;
+    const hx = CONFIG.render.island.hx, hz = CONFIG.render.island.hz;
+    this.pts = []; for (const x of [-hx, hx]) for (const z of [-hz, hz]) for (const y of [-6.4, 5.5]) this.pts.push([x, y, z]);
+    this.place();
+  }
+  resize(w, h) { this.W = w; this.H = h; this.aspect = w / h; this.place(); }
+  update(dt, orbit) {
+    if (orbit) this.yaw += CONFIG.camera.orbitSpeed * dt;
+    else {
+      let d = (this.base - this.yaw) % (2 * Math.PI); if (d > Math.PI) d -= 2 * Math.PI; if (d < -Math.PI) d += 2 * Math.PI;
+      this.yaw += d * Math.min(1, dt * 3.5);
+    }
+    this.zoom += ((orbit ? 1 : CONFIG.camera.playZoom) - this.zoom) * Math.min(1, dt * 3);
+    this.place();
+  }
+  place() {
+    const y = this.yaw, p = this.pitch, cp = Math.cos(p), sp = Math.sin(p), c = this.cam;
+    c.position.set(Math.sin(y) * cp * 120, sp * 120, Math.cos(y) * cp * 120); c.lookAt(0, 0, 0);
+    // screen axes in world space
+    const rx = Math.cos(y), rz = -Math.sin(y), ux = -sp * Math.sin(y), uy = cp, uz = -sp * Math.cos(y);
+    let minR = 1e9, maxR = -1e9, minU = 1e9, maxU = -1e9;
+    for (const q of this.pts) { const r = q[0] * rx + q[2] * rz, u = q[0] * ux + q[1] * uy + q[2] * uz; if (r < minR) minR = r; if (r > maxR) maxR = r; if (u < minU) minU = u; if (u > maxU) maxU = u; }
+    const hw = (maxR - minR) / 2, hh = (maxU - minU) / 2, s = Math.max(hh, hw / this.aspect) * 1.07 * this.zoom, cr = (maxR + minR) / 2, cu = (maxU + minU) / 2 + (1 - this.zoom) * 0.0;
+    c.left = cr - s * this.aspect; c.right = cr + s * this.aspect; c.top = cu + s; c.bottom = cu - s; c.updateProjectionMatrix();
+  }
+}
+
+// ---------------------------------------------------------------- PLAYER (chunky low-poly figure + procedural animation)
+const BOX = new THREE.BoxGeometry(1, 1, 1); const MATS = new Map();
+function mat(color) { let m = MATS.get(color); if (!m) { m = new THREE.MeshLambertMaterial({ color, flatShading: true }); MATS.set(color, m); } return m; }
+function part(parent, w, h, d, color, x, y, z) { const m = new THREE.Mesh(BOX, mat(color)); m.scale.set(w, h, d); m.position.set(x, y, z); m.castShadow = true; parent.add(m); return m; }
+
+class Player {
+  constructor(id, scene, look) {
+    this.id = id; this.sz = id === 0 ? 1 : -1; this.name = id === 0 ? 'YOU' : 'CPU';
+    this.x = 0; this.z = 0; this.vx = 0; this.vz = 0; this.cx = 0; this.cz = 0; this.maxSpeed = CONFIG.player.speed;
+    this.swingT = -1; this.swingKind = 'fh'; this.hitCD = 0; this.celebrate = 0; this.runPhase = 0; this.turn = 0; this.t = Math.random() * 6;
+    this.x0 = 0; this.xMin = -4.7; this.xMax = 4.7; this.zMin = 0.45; this.zMax = 8.4;
+    const g = this.group = new THREE.Group(); g.scale.setScalar(1.3);
+    this.legL = new THREE.Group(); this.legR = new THREE.Group(); this.legL.position.set(0.13, 0.9, 0); this.legR.position.set(-0.13, 0.9, 0);
+    for (const leg of [this.legL, this.legR]) { part(leg, 0.2, 0.42, 0.22, look.shorts, 0, -0.21, 0); part(leg, 0.15, 0.4, 0.17, look.skin, 0, -0.62, 0); part(leg, 0.2, 0.1, 0.3, 0xf5f5f5, 0, -0.85, 0.05); g.add(leg); }
+    this.upper = new THREE.Group(); this.upper.position.set(0, 0.9, 0); g.add(this.upper);
+    part(this.upper, 0.52, 0.62, 0.3, look.shirt, 0, 0.31, 0);
+    part(this.upper, 0.54, 0.12, 0.32, look.shorts, 0, 0.04, 0);
+    const head = new THREE.Group(); head.position.set(0, 0.82, 0); this.upper.add(head); this.head = head;
+    part(head, 0.3, 0.3, 0.3, look.skin, 0, 0, 0); part(head, 0.33, 0.12, 0.33, look.hair, 0, 0.17, -0.01); part(head, 0.33, 0.2, 0.1, look.hair, 0, 0.04, -0.12);
+    part(head, 0.05, 0.05, 0.02, 0x222222, 0.07, 0.03, 0.155); part(head, 0.05, 0.05, 0.02, 0x222222, -0.07, 0.03, 0.155);
+    part(head, 0.33, 0.04, 0.16, look.shirt, 0, 0.12, 0.17); // cap brim
+    this.armR = new THREE.Group(); this.armL = new THREE.Group(); this.armR.position.set(-0.34, 0.55, 0); this.armL.position.set(0.34, 0.55, 0);
+    for (const a of [this.armR, this.armL]) { part(a, 0.15, 0.26, 0.17, look.shirt, 0, -0.13, 0); part(a, 0.12, 0.4, 0.13, look.skin, 0, -0.46, 0); this.upper.add(a); }
+    const pad = this.paddle = new THREE.Group(); pad.position.set(0, -0.68, 0.02); this.armR.add(pad);
+    part(pad, 0.05, 0.14, 0.05, 0x222222, 0, -0.05, 0); part(pad, 0.32, 0.36, 0.04, look.paddle, 0, -0.3, 0); part(pad, 0.24, 0.28, 0.045, 0xffffff, 0, -0.3, 0);
+    pad.rotation.x = -0.3;
+    scene.add(g);
+  }
+  place(x, z) { this.x = x; this.z = z; this.vx = this.vz = 0; this.cx = this.cz = 0; this.swingT = -1; this.hitCD = 0; this.celebrate = 0; this.turn = 0; }
+  startSwing(kind, startFrac) { this.swingKind = kind; this.swingT = startFrac * CONFIG.player.swingTime; }
+  update(dt, freeze) {
+    const P = CONFIG.player, sp = this.maxSpeed * (this.swingT >= 0 ? P.swingSlow : 1) * (freeze ? 0 : 1), a = P.accel * dt;
+    const dx = this.cx * sp - this.vx, dz = this.cz * sp - this.vz;
+    this.vx += clamp(dx, -a, a); this.vz += clamp(dz, -a, a);
+    this.x += this.vx * dt; this.z += this.vz * dt;
+    if (this.x < this.xMin) { this.x = this.xMin; this.vx = 0; } else if (this.x > this.xMax) { this.x = this.xMax; this.vx = 0; }
+    if (this.z < this.zMin) { this.z = this.zMin; this.vz = 0; } else if (this.z > this.zMax) { this.z = this.zMax; this.vz = 0; }
+    if (this.hitCD > 0) this.hitCD -= dt;
+    if (this.swingT >= 0) { this.swingT += dt; if (this.swingT >= P.swingTime) this.swingT = -1; }
+    if (this.celebrate > 0) this.celebrate -= dt;
+  }
+  animate(dt, lookX) {
+    this.t += dt;
+    const spd = Math.hypot(this.vx, this.vz), A = Math.min(1, spd / 4.5) * 0.95;
+    if (spd > 0.3) this.runPhase += spd * dt * 2.1;
+    const s = Math.sin(this.runPhase);
+    this.legL.rotation.x = s * A; this.legR.rotation.x = -s * A;
+    this.armL.rotation.set(-s * A * 0.85, 0, 0.08); this.upper.rotation.set(0, 0, 0);
+    let jump = Math.abs(Math.sin(this.runPhase)) * 0.06 * Math.min(1, spd / 3) + Math.sin(this.t * 3) * 0.008;
+    const ar = this.armR;
+    if (this.celebrate > 0) {
+      this.armL.rotation.set(-2.9, 0, -0.25); ar.rotation.set(-2.9, 0, 0.25); jump = Math.abs(Math.sin(this.t * 11)) * 0.28;
+    } else if (this.swingT >= 0) {
+      const u = clamp(this.swingT / CONFIG.player.swingTime, 0, 1), e = 1 - (1 - u) * (1 - u), k = this.swingKind;
+      if (k === 'fh') { ar.rotation.set(-lerp(-1.1, 1.5, e), 0, -0.12); this.upper.rotation.y = lerp(0.5, -0.5, e); }
+      else if (k === 'bh') { ar.rotation.set(-lerp(-0.4, 1.4, e), 0, 0.6); this.upper.rotation.y = lerp(-0.5, 0.4, e); }
+      else { ar.rotation.set(-lerp(-0.7, 0.9, e), 0, 0.05); this.upper.rotation.y = 0; }
+    } else { ar.rotation.set(-0.55 - s * A * 0.25, 0, -0.1); }
+    this.group.position.set(this.x, Math.max(0, jump), this.z);
+    const d = clamp((lookX - this.x) * 0.15, -0.5, 0.5) * (this.sz === 1 ? -1 : 1);
+    this.turn += (d - this.turn) * Math.min(1, dt * 6);
+    this.group.rotation.y = (this.sz === 1 ? Math.PI : 0) + this.turn;
+  }
+}
+
+// ---------------------------------------------------------------- AI CONTROLLER (also drives player 0 in auto-play tests)
+class AIController {
+  constructor(game, p, diff) {
+    this.g = game; this.p = p; this.setDiff(diff);
+    this.react = 0; this.replanT = 0; this.serveT = 1; this.mistake = false; this.letGo = false;
+    this.plan = { x: 0, z: 0 }; this.tmp = {};
+  }
+  setDiff(name) { this.d = CONFIG.ai[name]; this.p.maxSpeed = this.d.speed; }
+  onNewPoint() { this.mistake = Math.random() < this.d.kitchenFault; this.serveT = CONFIG.serve.aiDelay; this.react = 0; this.letGo = false; }
+  onOpponentHit() { this.react = this.d.reaction; this.replanT = 0; this.letGo = false; }
+  moveTo(tx, tz) {
+    const p = this.p, dx = tx - p.x, dz = tz - p.z, m = Math.hypot(dx, dz);
+    if (m < 0.06) { p.cx = 0; p.cz = 0; return; }
+    const k = Math.min(1, m / 0.5) / m; p.cx = dx * k; p.cz = dz * k;
+  }
+  think(dt) {
+    const g = this.g, p = this.p, r = g.rules, b = g.ball, C = CONFIG.court;
+    if (g.state === 'serve') {
+      const sp = g.startPos[p.id]; this.moveTo(sp.x, sp.z);
+      if (r.server === p.id && !g.serve.pending) { this.serveT -= dt; if (this.serveT <= 0) g.beginServe(p, false); }
+      return;
+    }
+    if (g.state !== 'rally') { p.cx = 0; p.cz = 0; return; }
+    const opp = g.players[1 - p.id];
+    // just volleyed near the kitchen: back off so momentum cannot carry us into it
+    if (r.watch[p.id] && Math.abs(p.z) < C.kitchen + 0.75 && !this.mistake) { p.cx = 0; p.cz = p.sz; return; }
+    if (r.phase === 'rally' && r.lastHitter !== p.id) {
+      if (this.react > 0) { this.react -= dt; this.drift(opp); return; }
+      this.replanT -= dt; if (this.replanT <= 0) { this.replan(); this.replanT = 0.07; }
+      if (this.letGo) this.drift(opp); else this.moveTo(this.plan.x, this.plan.z);
+      if (!this.letGo && g.canHit(p) && this.wantsToHit()) g.strike(p, this.chooseSpec());
+    } else this.drift(opp);
+  }
+  // ready posture: back until the third shot, then up to the kitchen line
+  drift(opp) {
+    const r = this.g.rules, p = this.p, advance = r.hits >= 3 || (r.hits >= 2 && r.server !== p.id);
+    const z = p.sz * (advance ? CONFIG.court.kitchen + 0.45 : CONFIG.court.length / 2 - 0.9);
+    this.moveTo(clamp(opp.x * 0.45, -1.5, 1.5), z);
+  }
+  wantsToHit() {
+    const r = this.g.rules, b = this.g.ball, p = this.p, volley = r.bounces === 0;
+    if (b.y < 0.2 || b.y > 1.65) return false;
+    if (volley) {
+      if (r.hits <= 2) return false;
+      if ((r.inKitchen(p.x, p.z) || Math.abs(p.z) < CONFIG.court.kitchen + CONFIG.player.footRadius + 0.2) && !this.mistake) return false;
+    }
+    return true;
+  }
+  replan() {
+    const g = this.g, p = this.p, r = g.rules, b = g.ball, P = CONFIG.physics, C = CONFIG.court, tmp = this.tmp;
+    simFlight(CONFIG, b.x, b.y, b.z, b.vx, b.vy, b.vz, tmp);
+    this.letGo = false;
+    if (r.bounces === 0 && (Math.abs(tmp.lx) > C.width / 2 + 0.12 || Math.abs(tmp.lz) > C.length / 2 + 0.12) && tmp.lz * p.sz > 0) { this.letGo = true; return; }
+    let x = b.x, y = b.y, z = b.z, vx = b.vx, vy = b.vy, vz = b.vz, bn = 0, chosen = false;
+    const dt = P.step;
+    this.plan.x = clamp(tmp.lx, -4.4, 4.4); this.plan.z = clamp(tmp.lz, p.sz > 0 ? 0.6 : -8.3, p.sz > 0 ? 8.3 : -0.6);
+    for (let i = 0; i < 300; i++) {
+      vy -= P.gravity * dt; const f = Math.max(0, 1 - P.drag * Math.sqrt(vx * vx + vy * vy + vz * vz) * dt); vx *= f; vy *= f; vz *= f;
+      x += vx * dt; y += vy * dt; z += vz * dt;
+      if (y <= P.ballRadius && vy < 0) { const imp = -vy; y = P.ballRadius; vy = imp * P.restitution; if (imp > P.minImpact) { vx *= P.groundFriction; vz *= P.groundFriction; bn++; } else vy = 0; }
+      if (i % 6 !== 5) continue;
+      const t = (i + 1) * dt;
+      if (z * p.sz <= 0.3 || y < 0.25 || y > 1.5) continue;
+      const total = r.bounces + bn;
+      if (r.hits <= 2 && total < 1) continue;
+      const volley = total === 0;
+      if (volley && (Math.abs(z) > 4.6 || ((r.inKitchen(x, z) || Math.abs(z) < C.kitchen + CONFIG.player.footRadius + 0.2) && !this.mistake))) continue;
+      if (Math.hypot(x - p.x, z - p.z) > this.d.speed * Math.max(0, t - this.react) + CONFIG.player.reach * 0.7) continue;
+      this.plan.x = clamp(x, -4.4, 4.4); this.plan.z = clamp(z, p.sz > 0 ? 0.6 : -8.3, p.sz > 0 ? 8.3 : -0.6); chosen = true; break;
+    }
+  }
+  chooseSpec() {
+    const g = this.g, p = this.p, d = this.d, opp = g.players[1 - p.id], b = g.ball;
+    const oppZ = Math.abs(opp.z), myZ = Math.abs(p.z), r = Math.random(), away = opp.x >= 0 ? -1 : 1;
+    let type = 'drive';
+    if (oppZ < 3.6) { if (r < d.lobP * (myZ > 3 ? 1.5 : 1)) type = 'lob'; else if (myZ < 4.6 && r < d.lobP + d.dinkP) type = 'dink'; }
+    else if (myZ < 4.4 && r < d.dinkP * 0.6) type = 'dink';
+    if (b.y > 1.25 && type === 'dink') type = 'drive';
+    if (myZ > 5 && type === 'dink') type = 'lob';
+    let tx, tz;
+    if (type === 'drive') { tx = away * (Math.random() < 0.25 ? 2.6 : rand(0.8, 2.3)); tz = oppZ < 3.6 ? rand(5.0, 6.1) : rand(3.4, 5.6); }
+    else if (type === 'dink') { tx = away * rand(0.4, 2.0); tz = rand(0.8, 1.9); }
+    else { tx = away * rand(0.5, 2.0); tz = rand(5.2, 6.2); }
+    return { type, tx, tz, sd0: d.err };
+  }
+  serveSpec() {
+    const s = this.g.rules.receiveCourtSign();
+    return { type: 'serve', tx: s * rand(0.9, 2.5), tz: rand(3.6, 6.0), sd0: this.d.err * 0.9 };
+  }
+}
+
+// ---------------------------------------------------------------- HUD
+class HUD {
+  constructor() {
+    this.sYou = $('sYou'); this.sCpu = $('sCpu'); this.callTxt = $('callTxt'); this.games = $('games'); this.sideYou = $('sideYou'); this.sideCpu = $('sideCpu');
+    this.co = $('callout'); this.coBig = $('coBig'); this.coSub = $('coSub');
+  }
+  update(r) {
+    this.sYou.textContent = r.score[0]; this.sCpu.textContent = r.score[1]; this.callTxt.textContent = r.call();
+    this.games.textContent = 'GAME ' + (r.gameIndex + 1) + ' \u00B7 GAMES ' + r.games[0] + '-' + r.games[1];
+    this.sideYou.classList.toggle('serving', r.server === 0); this.sideCpu.classList.toggle('serving', r.server === 1);
+  }
+  callout(text, sub) {
+    this.coBig.textContent = text; this.coSub.textContent = sub || ''; this.coSub.style.display = sub ? 'inline-block' : 'none';
+    this.co.classList.remove('show'); void this.co.offsetWidth; this.co.classList.add('show');
+  }
+  screen(name) { for (const id of ['scrTitle', 'scrHow', 'scrPause', 'scrEnd']) $(id).classList.toggle('on', id === name); }
+}
+
+// ---------------------------------------------------------------- GAME (state machine + fixed-step loop)
+class Game {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, CONFIG.render.maxPixelRatio));
+    this.renderer.shadowMap.enabled = true; this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.scene = new THREE.Scene(); this.scene.background = new THREE.Color(0xede8df);
+    const hemi = new THREE.HemisphereLight(0xfff6e6, 0x9a8f78, 1.5); this.scene.add(hemi);
+    const sun = this.sun = new THREE.DirectionalLight(0xffe2b8, 2.5); sun.position.set(-14, 28, 7); sun.castShadow = true;
+    sun.shadow.mapSize.set(CONFIG.render.shadowMap, CONFIG.render.shadowMap);
+    const sc = sun.shadow.camera; sc.left = -24; sc.right = 24; sc.top = 24; sc.bottom = -24; sc.near = 1; sc.far = 90; sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.03;
+    this.scene.add(sun);
+    this.rig = new CameraRig(); this.venue = new Venue(this.scene);
+    this.rules = new Rules(CONFIG); this.audio = new AudioFX(); this.hud = new HUD(); this.input = new Input();
+    this.players = [
+      new Player(0, this.scene, { shirt: 0xd94a3d, shorts: 0x2b2f3a, skin: 0xf0c6a0, hair: 0x4a2f1e, paddle: 0x2a2a2a }),
+      new Player(1, this.scene, { shirt: 0x3e8ce6, shorts: 0xf1f1f1, skin: 0xc98d62, hair: 0x20150e, paddle: 0x1f5a3a })
+    ];
+    this.ball = new Ball(CONFIG);
+    const bm = new THREE.Mesh(new THREE.IcosahedronGeometry(0.15, 1), new THREE.MeshLambertMaterial({ color: 0xc9f03a, flatShading: true }));
+    bm.castShadow = true; this.ballMesh = bm; this.scene.add(bm);
+    const sm = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.5, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
+    this.blob = new THREE.Mesh(new THREE.CircleGeometry(1, 20).rotateX(-Math.PI / 2), sm); this.blob.renderOrder = 5; this.scene.add(this.blob);
+    const rm = new THREE.MeshBasicMaterial({ color: 0xfff36b, transparent: true, opacity: 0.85, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4, side: THREE.DoubleSide });
+    this.ring = new THREE.Mesh(new THREE.RingGeometry(0.3, 0.4, 28).rotateX(-Math.PI / 2), rm); this.ring.renderOrder = 6; this.ring.visible = false; this.scene.add(this.ring);
+
+    this.diff = 'normal'; this.state = 'title'; this.prev = 'serve'; this.time = 0; this.stateT = 0; this.acc = 0; this.cheerT = 0; this.cheerAt = -1;
+    this.buf = { t: 0, kind: 'hit', swung: false }; this.serve = { pending: false, t: 0, soft: false };
+    this.callouts = []; this.pending = null; this.startPos = [{ x: 0, z: 0 }, { x: 0, z: 0 }];
+    this.tw = [0, 0]; this.sol = {}; this.tmpSim = {}; this.tmpSol = {};
+    this.ctl = [null, new AIController(this, this.players[1], this.diff)];
+    this.seen = false; try { this.seen = localStorage.getItem('kr_seen') === '1'; } catch (e) { /* ignore */ }
+    this.input.onAction = (n) => this.onAction(n);
+    this.bindUI();
+    this.resize(); addEventListener('resize', () => this.resize());
+    this.layout(); this.hud.update(this.rules); this.venue.updateBoard(this.rules); this.hud.screen('scrTitle');
+    if (matchMedia('(pointer:coarse)').matches || 'ontouchstart' in window || /[?&]touch=1/.test(location.search)) document.body.classList.add('touch');
+  }
+  resize() {
+    const w = innerWidth, h = innerHeight; this.renderer.setSize(w, h, false); this.rig.resize(w, h);
+  }
+  bindUI() {
+    for (const b of document.querySelectorAll('#diffs .btn')) b.addEventListener('click', (e) => { e.stopPropagation(); this.setDiff(b.dataset.d); });
+    $('scrTitle').addEventListener('click', () => this.onAction('enter'));
+    $('scrHow').addEventListener('click', () => this.onAction('enter'));
+    $('btnResume').addEventListener('click', (e) => { e.stopPropagation(); this.onAction('enter'); });
+    $('btnQuit').addEventListener('click', (e) => { e.stopPropagation(); this.onAction('quit'); });
+    $('btnAgain').addEventListener('click', (e) => { e.stopPropagation(); this.onAction('enter'); });
+    $('btnMute').addEventListener('click', () => this.onAction('mute'));
+    $('btnPause').addEventListener('click', () => this.onAction('pause'));
+  }
+  setDiff(d) {
+    this.diff = d; this.ctl[1].setDiff(d); if (this.ctl[0]) this.ctl[0].setDiff('hard');
+    for (const b of document.querySelectorAll('#diffs .btn')) b.classList.toggle('sel', b.dataset.d === d);
+    this.audio.sfx('blip');
+  }
+  setState(s) {
+    this.state = s; this.stateT = 0;
+    this.hud.screen(s === 'title' ? 'scrTitle' : s === 'howto' ? 'scrHow' : s === 'paused' ? 'scrPause' : s === 'end' ? 'scrEnd' : null);
+  }
+  // ------------------------------------------------ UI actions
+  onAction(n) {
+    this.audio.ensure();
+    const S = this.state, playing = S === 'serve' || S === 'rally' || S === 'pointover';
+    switch (n) {
+      case 'touch': document.body.classList.add('touch'); break;
+      case 'mute': this.audio.setMuted(!this.audio.muted); $('btnMute').textContent = this.audio.muted ? 'SOUND OFF' : 'SOUND ON'; this.audio.sfx('blip'); break;
+      case 'ctl': this.input.screenRel = !this.input.screenRel; $('ctlMode').textContent = this.input.screenRel ? 'screen' : 'court'; this.audio.sfx('blip'); break;
+      case 'left': case 'right':
+        if (S === 'title') { const L = ['easy', 'normal', 'hard'], i = L.indexOf(this.diff); this.setDiff(L[clamp(i + (n === 'left' ? -1 : 1), 0, 2)]); }
+        break;
+      case 'quit': if (S === 'paused') { this.setState('title'); this.rules.resetMatch(); this.layout(); this.hud.update(this.rules); this.venue.updateBoard(this.rules); this.audio.sfx('blip'); } break;
+      case 'pause': case 'enter':
+        if (S === 'title') { if (!this.seen) { this.setState('howto'); this.audio.sfx('blip'); } else this.startMatch(); }
+        else if (S === 'howto') { this.seen = true; try { localStorage.setItem('kr_seen', '1'); } catch (e) { /* ignore */ } this.startMatch(); }
+        else if (S === 'paused') { this.setState(this.prev); this.audio.sfx('blip2'); }
+        else if (S === 'end') this.startMatch();
+        else if (playing) { this.prev = S; this.setState('paused'); this.audio.sfx('blip'); }
+        break;
+      case 'hit': case 'soft':
+        if (S === 'title' || S === 'howto' || S === 'end') { this.onAction('enter'); break; }
+        if (S === 'paused' || this.ctl[0]) break;
+        if (S === 'serve') { if (this.rules.server === 0 && !this.serve.pending) this.beginServe(this.players[0], n === 'soft'); }
+        else if (S === 'rally') { this.buf.t = CONFIG.input.bufferMs / 1000; this.buf.kind = n; this.buf.swung = false; }
+        break;
+    }
+  }
+  startMatch() {
+    this.rules.resetMatch(); this.audio.sfx('blip2'); this.resetServe();
+  }
+  // ------------------------------------------------ point flow
+  layout() {
+    const r = this.rules, hl = CONFIG.court.length / 2, P = CONFIG.player;
+    const sv = this.players[r.server], rc = this.players[1 - r.server];
+    this.startPos[sv.id].x = r.serveCourtSign() * P.serveDepth; this.startPos[sv.id].z = sv.sz * (hl + P.serveZ);
+    this.startPos[rc.id].x = r.receiveCourtSign() * P.serveDepth; this.startPos[rc.id].z = rc.sz * (hl + 0.25);
+    for (const p of this.players) { p.place(this.startPos[p.id].x, this.startPos[p.id].z); }
+    this.ball.live = false; this.ring.visible = false; this.holdBall();
+  }
+  resetServe() {
+    this.setState('serve'); this.serve.pending = false; this.buf.t = 0; this.callouts.length = 0; this.pending = null;
+    this.layout(); this.acc = 0;
+    for (const c of this.ctl) if (c) c.onNewPoint();
+    this.hud.update(this.rules); this.venue.updateBoard(this.rules);
+    if (this.rules.gamePoint()) this.queueCallout('GAME POINT', (this.rules.server === 0 ? 'YOU' : 'CPU') + ' can win the game', 0.35);
+  }
+  holdBall() {
+    const sv = this.players[this.rules.server], b = this.ball;
+    b.x = sv.x; b.z = sv.z - sv.sz * 0.45; b.y = CONFIG.shot.serveHeight; b.vx = b.vy = b.vz = 0;
+  }
+  queueCallout(text, sub, delay) { this.callouts.push({ text, sub, t: delay }); }
+  // serve: underhand swing, release after a short delay
+  beginServe(p, soft) {
+    if (this.state !== 'serve' || this.serve.pending) return;
+    this.serve.pending = true; this.serve.t = CONFIG.serve.release; this.serve.soft = soft; p.startSwing('serve', 0);
+  }
+  releaseServe() {
+    const r = this.rules, p = this.players[r.server], b = this.ball;
+    this.serve.pending = false; this.holdBall();
+    let spec;
+    if (this.ctl[p.id]) spec = this.ctl[p.id].serveSpec();
+    else {
+      this.input.world(this.tw); const up = -this.tw[1], s = r.receiveCourtSign();
+      spec = { type: this.serve.soft ? 'servesoft' : 'serve', tx: s * clamp(s * (s * 1.6 + 1.1 * this.tw[0]), 0.3, 2.85), tz: lerp(2.5, 6.3, 0.5 + 0.5 * up), sd0: 0.16 };
+    }
+    p.hitCD = CONFIG.player.hitCooldown;
+    r.onServe(); b.live = true; this.shoot(p, spec, spec.sd0 * 0.7);
+    this.setState('rally'); this.acc = 0;
+    this.audio.sfx('pock');
+    const o = this.ctl[1 - p.id]; if (o) o.onOpponentHit();
+  }
+  canHit(p) {
+    const b = this.ball, P = CONFIG.player;
+    return this.rules.phase === 'rally' && b.live && this.rules.lastHitter !== p.id && p.hitCD <= 0 && b.z * p.sz > 0 &&
+      b.y >= P.minHitY && b.y <= P.maxHitY && Math.hypot(b.x - p.x, b.z - p.z) <= P.reach;
+  }
+  humanSpec(kind) {
+    const p = this.players[0], b = this.ball, S = CONFIG.shot, P = CONFIG.player;
+    this.input.world(this.tw); const dx = this.tw[0], up = -this.tw[1], d = 0.5 + 0.5 * up;
+    const t = clamp(((p.z - b.z) * p.sz) / P.reach, -1, 1); // + when the ball is ahead of the player (toward the net) = early contact
+    const side = (b.x - p.x) >= 0 ? 1 : -1;
+    let type, tz;
+    if (kind === 'hit') { type = 'drive'; tz = lerp(3.0, 6.4, d); }
+    else if (Math.abs(p.z) <= S.dinkMaxZ) { type = 'dink'; tz = lerp(0.7, 1.95, d); }
+    else { type = 'lob'; tz = lerp(4.8, 6.4, d); }
+    return { type, tx: dx * 2.0 + t * S.timingSkew * side, tz, sd0: 0.2 };
+  }
+  // compute and apply the launch velocity for a shot (auto-aim). sd = random error std dev in metres
+  shoot(p, spec, sd) {
+    const b = this.ball, C = CONFIG.court, S = CONFIG.shot, sgn = -p.sz;
+    const tx = clamp(spec.tx + gauss() * sd, -4.3, 4.3), tzw = sgn * Math.max(0.35, spec.tz + gauss() * sd * 1.3);
+    const dist = Math.hypot(tx - b.x, tzw - b.z);
+    let T = spec.type === 'drive' ? dist / S.driveSpeed : spec.type === 'serve' ? dist / S.serveSpeed : spec.type === 'servesoft' ? S.softServeT : spec.type === 'dink' ? S.dinkT : S.lobT;
+    T = Math.max(T, 0.5);
+    let sol = this.sol;
+    for (let i = 0; i < 9; i++) {
+      solveShot(CONFIG, b.x, b.y, b.z, tx, tzw, T, sol, this.tmpSol);
+      if (sol.crossed && sol.netY >= C.netSide + S.netClear) break; T *= 1.1;
+    }
+    b.vx = sol.vx; b.vy = sol.vy; b.vz = sol.vz;
+    simFlight(CONFIG, b.x, b.y, b.z, b.vx, b.vy, b.vz, this.tmpSim);
+    this.ring.position.set(this.tmpSim.lx, 0.035, this.tmpSim.lz); this.ring.visible = true;
+  }
+  strike(p, spec) {
+    const b = this.ball, P = CONFIG.player;
+    const stretch = clamp(Math.hypot(b.x - p.x, b.z - p.z) / P.reach, 0, 1.2);
+    const bh = (b.x - p.x) * (p.id === 0 ? 1 : -1) < -0.05;
+    p.startSwing(bh ? 'bh' : 'fh', 0.38); p.hitCD = P.hitCooldown; this.buf.t = 0;
+    const ev = this.rules.onHit(p.id, this.rules.inKitchen(p.x, p.z));
+    this.shoot(p, spec, spec.sd0 * (0.6 + 0.8 * stretch));
+    this.audio.sfx('pock');
+    const o = this.ctl[1 - p.id]; if (o) o.onOpponentHit();
+    if (ev) this.handleFault(ev);
+  }
+  handleFault(ev) {
+    this.ring.visible = false; this.audio.sfx('fault');
+    this.callouts.length = 0;
+    this.queueCallout(ev.label, ev.detail, 0);
+    let d = 1.15;
+    const nm = (i) => (i === 0 ? 'YOU' : 'CPU');
+    if (ev.sideOut) { this.queueCallout('SIDE OUT', nm(this.rules.server) + ' to serve', d); d += 1.0; }
+    if (ev.scorer >= 0) { this.players[ev.scorer].celebrate = 1.8; this.cheerT = 2.2; this.cheerAt = 0.5; }
+    if (ev.gameOver) { this.queueCallout('GAME', nm(ev.winner) + ' win ' + this.rules.score[ev.winner] + '-' + this.rules.score[1 - ev.winner], d); d += 1.2; }
+    if (ev.matchOver) this.queueCallout('MATCH', nm(ev.winner) + ' win the match ' + this.rules.games[0] + '-' + this.rules.games[1], d);
+    this.pending = ev; this.setState('pointover');
+    this.hud.update(this.rules); this.venue.updateBoard(this.rules);
+  }
+  afterPoint() {
+    const ev = this.pending; this.pending = null;
+    if (ev && ev.matchOver) {
+      const w = ev.winner; $('endTitle').textContent = w === 0 ? 'You win the match!' : 'CPU wins the match';
+      $('endSub').textContent = 'Games ' + this.rules.games[0] + ' - ' + this.rules.games[1] + ' \u00B7 difficulty ' + this.diff.toUpperCase();
+      this.setState('end'); return;
+    }
+    if (ev && ev.gameOver) this.rules.nextGame(); else this.rules.newPoint();
+    this.resetServe();
+  }
+  // ------------------------------------------------ per-frame update
+  applyBounds(p) {
+    const P = CONFIG.player, r = this.rules, hl = CONFIG.court.length / 2;
+    p.xMin = -P.boundX; p.xMax = P.boundX;
+    if (p.sz > 0) { p.zMin = P.netGap; p.zMax = P.boundZ; } else { p.zMin = -P.boundZ; p.zMax = -P.netGap; }
+    if (this.state === 'serve' && r.server === p.id) {
+      const s = r.serveCourtSign(); // stay inside the serving court, behind the baseline
+      if (s > 0) { p.xMin = 0.2; p.xMax = 3.0; } else { p.xMin = -3.0; p.xMax = -0.2; }
+      if (p.sz > 0) { p.zMin = hl + 0.15; p.zMax = hl + 1.8; } else { p.zMin = -(hl + 1.8); p.zMax = -(hl + 0.15); }
+    }
+  }
+  update(dt) {
+    this.time += dt;
+    this.rig.update(dt, this.state === 'title');
+    this.venue.updateSpectators(this.time, this.cheerT);
+    if (this.cheerT > 0) this.cheerT -= dt;
+    const S = this.state;
+    if (S === 'paused' || S === 'howto') { this.syncVisuals(0); return; }
+    // callouts
+    if (this.callouts.length) { for (let i = 0; i < this.callouts.length; i++) this.callouts[i].t -= dt; while (this.callouts.length && this.callouts[0].t <= 0) { const c = this.callouts.shift(); this.hud.callout(c.text, c.sub); } }
+    if (this.cheerAt > 0) { this.cheerAt -= dt; if (this.cheerAt <= 0) this.audio.sfx('cheer'); }
+    this.stateT += dt;
+    if (S === 'title' || S === 'end') { for (const p of this.players) p.update(dt, true); this.syncVisuals(dt); return; }
+    // controls
+    const h = this.players[0];
+    if (this.ctl[0]) this.ctl[0].think(dt);
+    else if (S === 'serve' || S === 'rally') { this.input.world(this.tw); h.cx = this.tw[0]; h.cz = this.tw[1]; }
+    else { h.cx = 0; h.cz = 0; }
+    if (this.ctl[1]) this.ctl[1].think(dt);
+    if (S === 'pointover') for (const p of this.players) { p.cx = 0; p.cz = 0; }
+    for (const p of this.players) { this.applyBounds(p); p.update(dt, false); }
+    if (this.state === 'serve') {
+      if (this.serve.pending) { this.serve.t -= dt; if (this.serve.t <= 0) this.releaseServe(); }
+      if (this.state === 'serve') this.holdBall();
+    }
+    if (this.state === 'rally') {
+      if (!this.ctl[0] && this.buf.t > 0) {
+        this.buf.t -= dt;
+        if (this.canHit(h)) this.strike(h, this.humanSpec(this.buf.kind));
+        else if (!this.buf.swung && h.swingT < 0 && h.hitCD <= 0) { h.startSwing((this.ball.x - h.x) < 0 ? 'bh' : 'fh', 0); h.hitCD = 0.18; this.buf.swung = true; }
+      }
+    }
+    if (this.state === 'rally' || this.state === 'pointover') {
+      this.acc += dt; const step = CONFIG.physics.step, b = this.ball;
+      while (this.acc >= step) {
+        this.acc -= step; b.step(step);
+        if (b.netEv) { this.audio.sfx('net'); this.rules.onNet(); }
+        if (b.bounceEv) {
+          this.audio.sfx('bounce'); this.ring.visible = false;
+          if (this.state === 'rally') { const ev = this.rules.onBounce(b.bx, b.bz); if (ev) this.handleFault(ev); }
+        }
+      }
+      if (this.state === 'rally') {
+        for (const p of this.players) { const ev = this.rules.momentum(p.id, this.rules.inKitchen(p.x, p.z)); if (ev) { this.handleFault(ev); break; } }
+      }
+    }
+    if (this.state === 'pointover' && this.stateT >= this.stateTmax()) this.afterPoint();
+    this.syncVisuals(dt);
+  }
+  stateTmax() { const e = this.pending; return e ? (e.matchOver ? CONFIG.timing.matchOver + 1.4 : e.gameOver ? CONFIG.timing.gameOver : CONFIG.timing.pointOver) : 0; }
+  syncVisuals(dt) {
+    const b = this.ball, h = Math.max(0, b.y - CONFIG.physics.ballRadius);
+    this.ballMesh.position.set(b.x, b.y + 0.11, b.z); this.ballMesh.rotation.x += dt * 5; this.ballMesh.rotation.z += dt * 3;
+    const s = 0.17 + 0.05 * Math.min(h, 3); this.blob.position.set(b.x, 0.03, b.z); this.blob.scale.set(s, 1, s); this.blob.material.opacity = 0.55 / (1 + 0.25 * h);
+    if (this.ring.visible) { const k = 1 + 0.12 * Math.sin(this.time * 9); this.ring.scale.set(k, 1, k); }
+    const lookX = b.x;
+    for (const p of this.players) p.animate(dt, lookX);
+  }
+  render() { this.renderer.render(this.scene, this.rig.cam); }
+  // ------------------------------------------------ test helpers (headless): advance game time without rendering
+  simulate(seconds, dt = 1 / 60) { const n = Math.round(seconds / dt); for (let i = 0; i < n; i++) this.update(dt); }
+  setAuto(on) { this.ctl[0] = on ? new AIController(this, this.players[0], 'hard') : null; if (on) { this.ctl[0].onNewPoint(); } this.players[0].maxSpeed = on ? CONFIG.ai.hard.speed : CONFIG.player.speed; }
+}
+
+// ---------------------------------------------------------------- boot
+const game = new Game($('gl'));
+window.__KR = { game, CONFIG, THREE };
+let last = performance.now();
+function loop(now) { const dt = Math.min(0.05, (now - last) / 1000); last = now; game.update(dt); game.render(); requestAnimationFrame(loop); }
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

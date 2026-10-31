@@ -658,30 +658,83 @@ class Venue {
     g.fillStyle = '#cfe8d8'; g.fillText('GAMES ' + rules.games[0] + ' - ' + rules.games[1] + (rules.doubles ? '   SERVER ' + rules.serverNum : ''), 256, 238);
     o.tex.needsUpdate = true;
   }
+  // Spectators: the same humanoid model and proportions as the players (head, torso, arms, legs, scale 1.3), drawn with one
+  // InstancedMesh per body part (12 draw calls for the whole crowd). Seated on the benches, a few standing, varied colours.
   makeSpectators() {
-    const x0 = -7.0, cols = 9, tiers = 4, N = cols * tiers;
-    const bodyG = new THREE.BoxGeometry(0.36, 0.52, 0.3), headG = new THREE.BoxGeometry(0.26, 0.26, 0.26);
-    const mat = new THREE.MeshLambertMaterial({ color: 0xffffff });
-    this.bodies = new THREE.InstancedMesh(bodyG, mat, N); this.heads = new THREE.InstancedMesh(headG, new THREE.MeshLambertMaterial({ color: 0xffffff }), N);
-    this.bodies.castShadow = this.heads.castShadow = true;
-    this.specBase = new Float32Array(N * 3); this.specPhase = new Float32Array(N);
-    const shirts = [0xd94a3d, 0x3e8ce6, 0xf2c14e, 0x8fd16a, 0xffffff, 0x9b6fd1, 0xf08fb0], skins = [0xf1c9a5, 0xd9a07a, 0x8d5a3b, 0xe8b894];
-    const c = new THREE.Color(); let k = 0;
+    const x0 = -7.0, cols = 9, tiers = 4;
+    let seed = 7; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+    const shirts = [0xd94a3d, 0x3e8ce6, 0xf2c14e, 0x8fd16a, 0xffffff, 0x9b6fd1, 0xf08fb0, 0xf2922b, 0x1fb5a5, 0x2f3a4f, 0xe85d9a, 0x6c8f3a];
+    const shorts = [0x2b2f3a, 0xf1f1f1, 0x3a3f4b, 0x4a5a78, 0x7a5a3c, 0x20262e];
+    const skins = [0xf1c9a5, 0xe0b48a, 0xd9a77c, 0xc98d62, 0x8d5a3b, 0x6b4430];
+    const hairs = [0x20150e, 0x4a2f1e, 0x120c08, 0xb58a4a, 0xc9a24a, 0x9b4a22, 0xa8a8a8, 0xe9e4d8];
+    const pick = (arr) => arr[Math.floor(rnd() * arr.length)];
+    const S = this.spec = { list: [], n: 0 };
     for (let t = 0; t < tiers; t++) for (let i = 0; i < cols; i++) {
-      this.specBase[k * 3] = x0 - t * 0.95 + 0.1; this.specBase[k * 3 + 1] = 0.4 + t * 0.5 + 0.1; this.specBase[k * 3 + 2] = -4.4 + i * 1.1 + (t % 2) * 0.25; this.specPhase[k] = Math.random() * 6.28;
-      this.bodies.setColorAt(k, c.set(shirts[(k * 3 + t) % shirts.length])); this.heads.setColorAt(k, c.set(skins[(k * 5 + t) % skins.length])); k++;
+      if (rnd() < 0.1) continue; // a few empty seats
+      const top = 0.4 + t * 0.5, xc = x0 - t * 0.95, z = -4.4 + i * 1.1 + (t % 2) * 0.25 + (rnd() - 0.5) * 0.15;
+      const standing = t === 3 ? rnd() < 0.7 : t === 1 ? rnd() < 0.12 : false;
+      S.list.push({
+        x: standing ? xc + 0.05 : xc + 0.12, y: standing ? top : top + 0.06, z, standing, sc: 1.3 * (0.95 + rnd() * 0.11), phase: rnd() * 6.28, clap: rnd() * 6.28, lean: rnd() * 6.28,
+        yaw: 0, pit: 0, longHair: rnd() < 0.3, visor: rnd() < 0.4,
+        shirt: pick(shirts), shorts: pick(shorts), skin: pick(skins), hair: pick(hairs)
+      });
     }
-    this.bodies.instanceColor.needsUpdate = true; this.heads.instanceColor.needsUpdate = true;
-    this.dummy = new THREE.Object3D(); this.scene.add(this.bodies, this.heads); this.updateSpectators(0, 0);
+    const N = S.n = S.list.length, box = Batch.flat(new THREE.BoxGeometry(1, 1, 1)), c = new THREE.Color();
+    const mk = (count, key) => { const m = new THREE.InstancedMesh(box, new THREE.MeshLambertMaterial({ color: 0xffffff, flatShading: true }), count); m.castShadow = true; m.frustumCulled = false; this.scene.add(m); return m; };
+    const P = S.m = { torso: mk(N), belt: mk(N), head: mk(N), hairT: mk(N), hairB: mk(N), brim: mk(N), eyes: mk(2 * N), armU: mk(2 * N), armF: mk(2 * N), thigh: mk(2 * N), shin: mk(2 * N), shoe: mk(2 * N) };
+    const col = (m, idx, hex) => m.setColorAt(idx, c.set(hex));
+    S.list.forEach((s, i) => {
+      col(P.torso, i, s.shirt); col(P.belt, i, s.shorts); col(P.head, i, s.skin); col(P.hairT, i, s.hair); col(P.hairB, i, s.hair); col(P.brim, i, s.shirt);
+      for (let k = 0; k < 2; k++) { col(P.eyes, 2 * i + k, 0x222222); col(P.armU, 2 * i + k, s.shirt); col(P.armF, 2 * i + k, s.skin); col(P.thigh, 2 * i + k, s.shorts); col(P.shin, 2 * i + k, s.skin); col(P.shoe, 2 * i + k, 0xf5f5f5); }
+    });
+    for (const m of Object.values(P)) m.instanceColor.needsUpdate = true;
+    const M4 = () => new THREE.Matrix4();
+    S.t = { B: M4(), U: M4(), H: M4(), A: M4(), L: M4(), K: M4(), W: M4(), q: new THREE.Quaternion(), e: new THREE.Euler(), p: new THREE.Vector3(), s: new THREE.Vector3(), one: new THREE.Vector3(1, 1, 1), tmp: M4() };
+    this.updateSpectators(0, 0, null, 0);
   }
-  updateSpectators(time, cheer) {
-    const d = this.dummy, N = this.specPhase.length, amp = cheer > 0 ? 0.28 : 0.012, sp = cheer > 0 ? 11 : 1.4;
+  // frame = parent * T(px,py,pz) * R(rx,ry,rz)
+  _f(out, parent, px, py, pz, rx, ry, rz) { const t = this.spec.t; t.e.set(rx, ry, rz); t.q.setFromEuler(t.e); out.compose(t.p.set(px, py, pz), t.q, t.one); out.premultiply(parent); return out; }
+  // part = frame * T(px,py,pz) * S(w,h,d)
+  _p(mesh, idx, frame, px, py, pz, w, h, d) { const t = this.spec.t; t.q.set(0, 0, 0, 1); t.tmp.compose(t.p.set(px, py, pz), t.q, t.s.set(w, h, d)); t.tmp.premultiply(frame); mesh.setMatrixAt(idx, t.tmp); }
+  updateSpectators(time, cheer, ball, dt) {
+    const S = this.spec, P = S.m, T = S.t, cheering = cheer > 0, N = S.n;
     for (let i = 0; i < N; i++) {
-      const b = Math.abs(Math.sin(time * sp + this.specPhase[i])) * amp;
-      d.position.set(this.specBase[i * 3], this.specBase[i * 3 + 1] + 0.26 + b, this.specBase[i * 3 + 2]); d.updateMatrix(); this.bodies.setMatrixAt(i, d.matrix);
-      d.position.y += 0.4; d.updateMatrix(); this.heads.setMatrixAt(i, d.matrix);
+      const s = S.list[i];
+      // head follows the ball (smoothed, clamped); torso follows a little
+      let ty = 0, tp = 0;
+      if (ball) { const dx = ball.x - s.x, dz = ball.z - s.z; ty = clamp(-Math.atan2(dz, dx), -1.0, 1.0); tp = clamp((ball.y - 1.8) * 0.05, -0.2, 0.15); }
+      const k = Math.min(1, dt * 7); s.yaw += (ty - s.yaw) * k; s.pit += (tp - s.pit) * k;
+      // activity: cheering after a point, otherwise idle with the odd clap
+      const clapping = !cheering && Math.sin(time * 0.31 + s.clap) > 0.93;
+      const bob = cheering ? Math.abs(Math.sin(time * 9 + s.phase)) * (s.standing ? 0.2 : 0.1) : Math.sin(time * 1.6 + s.phase) * 0.008;
+      const sit = !s.standing;
+      T.B.compose(T.p.set(s.x, s.y + bob, s.z), T.q.setFromAxisAngle(T.s.set(0, 1, 0), Math.PI / 2), T.s.set(s.sc, s.sc, s.sc));
+      const hipY = sit ? 0.12 : 0.9;
+      this._f(T.U, T.B, 0, hipY, 0, sit ? 0.03 : 0, s.yaw * 0.25, Math.sin(time * 0.7 + s.lean) * 0.02);
+      this._p(P.torso, i, T.U, 0, 0.31, 0, 0.52, 0.62, 0.3); this._p(P.belt, i, T.U, 0, 0.04, 0, 0.54, 0.12, 0.32);
+      this._f(T.H, T.U, 0, 0.82, 0, s.pit, s.yaw * 0.75, 0);
+      this._p(P.head, i, T.H, 0, 0, 0, 0.3, 0.3, 0.3); this._p(P.hairT, i, T.H, 0, 0.17, -0.01, 0.33, 0.12, 0.33);
+      if (s.longHair) this._p(P.hairB, i, T.H, 0, -0.06, -0.12, 0.33, 0.46, 0.1); else this._p(P.hairB, i, T.H, 0, 0.04, -0.12, 0.33, 0.2, 0.1);
+      if (s.visor) this._p(P.brim, i, T.H, 0, 0.12, 0.17, 0.33, 0.04, 0.16); else this._p(P.brim, i, T.H, 0, 0.12, 0.17, 0, 0, 0);
+      this._p(P.eyes, 2 * i, T.H, 0.07, 0.03, 0.155, 0.05, 0.05, 0.02); this._p(P.eyes, 2 * i + 1, T.H, -0.07, 0.03, 0.155, 0.05, 0.05, 0.02);
+      for (let side = 0; side < 2; side++) {
+        const sg = side ? -1 : 1, idx = 2 * i + side;
+        // arms: cheer = both up and waving, clap = hands together in front, idle = resting (seated: hands on the lap)
+        let ax, az;
+        if (cheering) { ax = -2.8 + Math.sin(time * 12 + s.phase + side) * 0.35; az = -sg * (0.25 + Math.sin(time * 9 + s.phase) * 0.15); }
+        else if (clapping) { ax = -1.25; az = -sg * (0.12 + 0.2 * (0.5 + 0.5 * Math.sin(time * 15 + s.phase))); }
+        else { ax = sit ? -0.75 : -0.12 + Math.sin(time * 1.3 + s.phase) * 0.03; az = -sg * 0.1; }
+        this._f(T.A, T.U, sg * 0.34, 0.55, 0, ax, 0, az);
+        this._p(P.armU, idx, T.A, 0, -0.13, 0, 0.15, 0.26, 0.17); this._p(P.armF, idx, T.A, 0, -0.46, 0, 0.12, 0.4, 0.13);
+        // legs: seated = thigh forward and shin down; standing = straight
+        const lx = sg * 0.13;
+        this._f(T.L, T.B, lx, hipY, 0, sit ? -Math.PI / 2 : 0, 0, 0);
+        this._p(P.thigh, idx, T.L, 0, -0.21, 0, 0.2, 0.42, 0.22);
+        this._f(T.K, T.L, 0, -0.42, 0, sit ? Math.PI / 2 : 0, 0, 0);
+        this._p(P.shin, idx, T.K, 0, -0.2, 0, 0.15, 0.4, 0.17); this._p(P.shoe, idx, T.K, 0, -0.43, 0.05, 0.2, 0.1, 0.3);
+      }
     }
-    this.bodies.instanceMatrix.needsUpdate = true; this.heads.instanceMatrix.needsUpdate = true;
+    for (const m of Object.values(P)) m.instanceMatrix.needsUpdate = true;
   }
 }
 
@@ -1293,7 +1346,7 @@ class Game {
     const S0 = this.state, cm = (S0 === 'title' || S0 === 'howto') ? 'title' : S0 === 'end' ? 'end' : 'play';
     { let mx = 0; for (const p of this.players) mx += p.x; this.rig.setFocus(0.5 * this.ball.x + 0.5 * mx / this.players.length); }
     this.rig.update(dt, cm);
-    this.venue.updateSpectators(this.time, this.cheerT);
+    this.venue.updateSpectators(this.time, this.cheerT, this.ball, dt);
     if (this.cheerT > 0) this.cheerT -= dt;
     const S = this.state;
     if (S === 'paused' || S === 'howto') { this.syncVisuals(0); return; }

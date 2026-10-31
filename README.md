@@ -55,6 +55,10 @@ Trên điện thoại: cần joystick bên trái, hai nút HIT và SOFT bên ph�
 - **Giao bóng an toàn:** mặc định giao vào giữa ô giao bóng, đủ sâu qua bếp. Ô giao bóng được tô vàng và có vòng ngắm; giữ hướng để dịch điểm ngắm (trái/phải, lên = sâu hơn).
 - Auto-aim luôn giữ điểm ngắm trong vạch biên, nên cú đánh của bạn không tự bay ra ngoài.
 
+## Khán giả
+
+Khán giả là các nhân vật người cùng mô hình và tỉ lệ với người chơi (đầu, thân, tay, chân, tóc, kính che nắng, cùng scale), màu da, tóc, áo và quần khác nhau, phần lớn ngồi trên ghế, một số đứng ở hàng trên cùng. Họ có chuyển động nhẹ: thở, thỉnh thoảng vỗ tay, đưa tay lên reo hò khi có người ghi điểm, và đầu quay theo quả bóng. Cả đám đông vẽ bằng 12 InstancedMesh dùng chung một geometry (mỗi bộ phận cơ thể một mesh), cập nhật ma trận khoảng 0,06 ms mỗi khung hình.
+
 ## Chế độ đôi (Doubles 2v2)
 
 - **Đội hình:** bạn (áo đỏ, có mũi tên YOU nổi trên đầu) và đồng đội AI (áo cam) ở phía dưới, hai AI (áo xanh dương và xanh ngọc) ở phía trên. Camera vẫn đặt sau vạch cuối sân và khung hình trọn cả sân.
@@ -92,4 +96,4 @@ CONFIG, Rules, Ball (vật lý tự viết, bước cố định 120 Hz), Input,
 
 ## Ảnh chụp
 
-Xem thư mục `shots/` (title, transition, game, rally_closeup, mobile_portrait, mobile_landscape, doubles_serve, doubles_rally, singles_game, cue_bounce, cue_kitchen, fault_reason, serve_target).
+Xem thư mục `shots/` (title, transition, game, rally_closeup, mobile_portrait, mobile_landscape, doubles_serve, doubles_rally, singles_game, spectators_closeup, spectators_cheer, spectators_play, cue_bounce, cue_kitchen, fault_reason, serve_target).

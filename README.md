@@ -68,6 +68,17 @@ Khán giả là các nhân vật người cùng mô hình và tỉ lệ với ng
 - **Bảng điểm:** HUD và bảng điểm điện tử hiện tỉ số ba số và số người giao; nhãn đội là US / THEM.
 - Kiểm thử mô phỏng: nhiều trận đôi đầy đủ giữa bốn AI được chạy để kiểm tra luật xoay vòng giao bóng, người nhận đúng, side out và kết thúc game (xem mục Kiểm thử).
 
+## Chế độ xem (WATCH AI vs AI)
+
+Ở màn hình tiêu đề chọn **WATCH (AI vs AI)** (hoặc bấm phím **B**), dùng được cho cả đánh đơn lẫn đánh đôi. Bạn chỉ ngồi xem: nhân vật đầu tiên cũng do AI điều khiển, không cần nhập gì, nhãn "YOU", nút ASSIST và RULE HELPER bị ẩn. Mỗi bên chọn độ khó riêng (RED ở gần camera, BLUE ở xa): bấm nút Easy / Normal / Hard từng hàng, hoặc phím mũi tên trái / phải cho RED và phím **N** cho BLUE.
+
+- **Tốc độ:** phím **F** hoặc nút SPEED xoay vòng 1x, 2x, 4x.
+- **Camera:** phím **V** hoặc nút VIEW đổi góc quay BROADCAST (sau vạch cuối sân, bám bóng mượt), HIGH (nhìn từ trên cao) và SIDELINE (góc xiên từ cạnh sân, thấy khán đài). Chuyển góc có hiệu ứng trượt mượt, lăn chuột hoặc chụm hai ngón vẫn zoom được.
+- **Tạm dừng:** Space hoặc Enter hoặc nút PAUSE. **Esc** quay về menu.
+- **HUD:** bảng điểm trên cùng hiện tỉ số theo cách xướng (đơn: "người giao - người nhận", đôi: "điểm giao - điểm nhận - số người giao"), các thông báo SIDE OUT, GAME POINT, GAME, MATCH như bình thường. Mỗi điểm vẫn làm khán giả reo hò.
+
+**Vì sao cần lỗi chủ ý:** AI đấu AI ở mức Normal đánh trung bình khoảng 60-70 cú mỗi pha bóng, xem rất chán. Ở watch mode, mỗi cú của AI có xác suất mắc "lỗi thật" (Easy 9,5%, Normal 11%, Hard 13%, nhân hệ số thấp ở cú giao và hai cú đầu, tăng dần khi pha bóng kéo dài), gồm: cú đánh dính lưới (NET), cú đánh ra ngoài (OUT, dài hoặc rộng) và cú bóng bổng yếu (pop-up) mà đối thủ sẽ **đập bóng (smash)** xuống góc trống. Ở thế đứng sát lưới hai bên, AI dink nhiều hơn (kitchen battle), pop-up thường đến từ các cú dink hỏng. Kết quả đo: pha bóng trung bình khoảng 9,1 cú (đo trên 1112 pha bóng, đơn và đôi, mọi cặp độ khó; trung vị 8-9), khoảng 73% pha bóng dài 5-15 cú và không có pha nào quá 40 cú. Các tham số nằm trong `CONFIG.watch`.
+
 ## Luật tóm tắt (đánh đơn, chế độ đôi xem mục trên)
 
 - **Giao bóng:** giao bóng thấp tay (underhand) từ sau vạch cuối sân, chéo sang ô giao bóng đối diện. Bóng phải qua khỏi vùng bếp (rơi trúng bếp, kể cả vạch bếp, là lỗi). Chỉ có một lần giao, bóng chạm lưới rồi vào ô vẫn chơi tiếp (let).
@@ -86,6 +97,8 @@ Ba mức Easy, Normal, Hard (áp dụng cho đối thủ và đồng đội AI; 
 
 ```bash
 node tests/rules.test.js
+# mô phỏng watch mode (cần playwright-core và Chrome): độ dài pha bóng, bất biến, lỗi console
+node tests/watch.sim.js 2
 ```
 
 Chạy các kiểm tra logic luật, gồm cả luật đôi (tỉ số 0-0-2, xoay vòng người giao 1 và 2, side out, đổi ô, người nhận đúng, 300 game đôi ngẫu nhiên kiểm tra bất biến) và đơn (ô giao bóng theo điểm chẵn lẻ, side-out, hai nảy, bếp, double bounce, thắng game hơn 2 điểm, best of 3) và vật lý (bắn bóng vào đúng điểm, va chạm lưới). Các tham số cân chỉnh nằm hết trong object `CONFIG` ở đầu phần script.
@@ -96,4 +109,4 @@ CONFIG, Rules, Ball (vật lý tự viết, bước cố định 120 Hz), Input,
 
 ## Ảnh chụp
 
-Xem thư mục `shots/` (title, transition, game, rally_closeup, mobile_portrait, mobile_landscape, doubles_serve, doubles_rally, singles_game, spectators_closeup, spectators_cheer, spectators_play, cue_bounce, cue_kitchen, fault_reason, serve_target).
+Xem thư mục `shots/` (watch_mode, title, transition, game, rally_closeup, mobile_portrait, mobile_landscape, doubles_serve, doubles_rally, singles_game, spectators_closeup, spectators_cheer, spectators_play, cue_bounce, cue_kitchen, fault_reason, serve_target).

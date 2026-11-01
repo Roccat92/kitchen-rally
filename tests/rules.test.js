@@ -115,4 +115,21 @@ const C=CONFIG.court;
     }
   }
   t('300 random doubles games: invariants hold ('+games+' finished, '+sideOuts+' side outs)', bad.length===0&&games>=290, bad.slice(0,3).join('|')); }
+// watch mode (AI vs AI) config + net-flaw physics
+{ const W=CONFIG.watch;
+  t('watch config: speeds 1x/2x/4x', JSON.stringify(W.speeds)==='[1,2,4]');
+  // expected rally length of the injected-error hazard model alone (natural AI errors only make rallies shorter)
+  for(const d of ['easy','normal','hard']){
+    let surv=1, mean=0; for(let n=1;n<=300;n++){ const f=n===1?W.serveErrMul:n<=4?W.earlyMul:Math.min(W.maxMul,1+(n-4)*W.growth); const h=Math.min(1,W.err[d]*f); mean+=n*surv*h; surv*=1-h; }
+    t('watch hazard model ('+d+') mean rally in 5..20 shots (got '+mean.toFixed(1)+')', mean>=5&&mean<=20);
+    t('watch error mix ('+d+') sums to 1', ['drive','dink','lob','serve'].every(k=>Math.abs(W.mix[k].reduce((a,b)=>a+b,0)-1)<1e-9));
+  }
+  // forcing a net flaw: lowering vy until the ball crosses below net height, the ball must hit the net band (or fall short)
+  const out={},tmp={},sim={}; let ok=0, n=0;
+  for(const [z,tz] of [[7.4,3.0],[7.0,5.5],[3.0,1.2],[2.0,4.0]]){
+    solveShot(CONFIG,0.5,1.0,z,-0.5,-tz,0.9,out,tmp); let vx=out.vx,vy=out.vy,vz=out.vz;
+    for(let i=0;i<24;i++){ simFlight(CONFIG,0.5,1.0,z,vx,vy,vz,sim); if(!sim.crossed||sim.netY<C.netSide-0.1) break; vy-=0.35; }
+    n++; if(!sim.crossed||sim.netY<C.netSide-0.1) ok++; }
+  t('net flaw reaches net height or falls short in '+ok+'/'+n+' shots', ok===n);
+}
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail?1:0);
